@@ -46,6 +46,9 @@ model EntradaSaida {
   // Preenchido quando categoria = "Prestador de Serviço".
   nomePrestador String?
   parcelas      Parcela[]
+  // Presente quando este registro foi gerado automaticamente a partir de uma
+  // Divida marcada como "em_pagamento".
+  divida        Divida?
   createdAt     DateTime  @default(now())
 }
 
@@ -60,10 +63,19 @@ model Parcela {
 }
 
 model Divida {
-  id             String   @id @default(cuid())
+  id             String        @id @default(cuid())
   valor          Float
   dataVencimento DateTime
   numeroParcelas Int? // opcional
   descricao      String?
-  createdAt      DateTime @default(now())
+  // "em_pagamento" ou "nao_estruturada"
+  status         String        @default("nao_estruturada")
+  // Valor de cada parcela mensal; obrigatório se status = "em_pagamento".
+  valorParcela   Float?
+  // Registro de EntradaSaida (categoria "Dívida") gerado automaticamente
+  // quando status = "em_pagamento", cujas Parcela alimentam a projeção de
+  // caixa e a listagem de Entradas/Saídas.
+  entradaSaidaId String?       @unique
+  entradaSaida   EntradaSaida? @relation(fields: [entradaSaidaId], references: [id])
+  createdAt      DateTime      @default(now())
 }

@@ -10,7 +10,7 @@ import { ResumoDividas } from "@/components/financeiro/resumo-dividas";
 import { ProjecaoCaixa } from "@/components/financeiro/projecao-caixa";
 import { EntradasSaidasTable } from "@/components/financeiro/entradas-saidas-table";
 import { NovaEntradaSaidaButton } from "@/components/financeiro/nova-entrada-saida-button";
-import { NovaDividaButton } from "@/components/financeiro/nova-divida-button";
+import { DividasManager } from "@/components/financeiro/dividas-manager";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +22,7 @@ export default async function FinanceiroPage(props: PageProps<"/financeiro">) {
 
   const [dividas, todasEntradasSaidas, parcelasPendentes, entradasSaidasDoMes] =
     await Promise.all([
-      prisma.divida.findMany(),
+      prisma.divida.findMany({ orderBy: { createdAt: "desc" } }),
       prisma.entradaSaida.findMany({ select: { tipo: true, valor: true } }),
       prisma.parcela.findMany({
         where: { status: "pendente" },
@@ -52,7 +52,7 @@ export default async function FinanceiroPage(props: PageProps<"/financeiro">) {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <NovaDividaButton />
+          <DividasManager dividas={dividas} />
           <NovaEntradaSaidaButton />
         </div>
       </header>
