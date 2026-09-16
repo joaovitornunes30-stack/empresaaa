@@ -1,0 +1,25 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model PerfilTributario {
+  id       String    @id @default(cuid())
+  nome     String
+  aliquota Float // percentual, ex: 8.0 = 8%
+  produtos Produto[]
+}
+
+model Produto {
+  id                 String   @id @default(cuid())
+  nome               String
+  precoVenda         Float
+  custoMedioMaterial Float
+  perfilTributarioId String
+  perfilTributario   PerfilTributario @relation(fields: [perfilTributarioId], references: [id])
+  createdAt          DateTime @default(now())
+}
