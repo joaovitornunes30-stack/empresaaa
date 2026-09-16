@@ -41,3 +41,10 @@ export function formatarMoeda(valor: number) {
 export function formatarPercentual(valor: number) {
   return `${valor.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`;
 }
+
+export function formatarDuracao(minutos: number) {
+  if (minutos < 60) return `${minutos} min`;
+  const horas = Math.floor(minutos / 60);
+  const minutosRestantes = minutos % 60;
+  return minutosRestantes === 0 ? `${horas} h` : `${horas} h ${minutosRestantes} min`;
+}

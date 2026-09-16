@@ -1,5 +1,6 @@
 import {
   calcularMargemContribuicao,
+  formatarDuracao,
   formatarMoeda,
   formatarPercentual,
   nivelMargem,
@@ -10,6 +11,7 @@ type Produto = {
   nome: string;
   precoVenda: number;
   custoMedioMaterial: number;
+  duracaoMinutos: number;
   comissaoTipo: "percentual" | "fixo";
   comissaoValor: number;
   perfilTributario: { nome: string; aliquota: number };
@@ -36,6 +38,7 @@ export function ProdutosTable({ produtos }: { produtos: Produto[] }) {
             <th className="px-5 py-3 font-medium">Perfil tributário</th>
             <th className="px-5 py-3 font-medium">Preço de venda</th>
             <th className="px-5 py-3 font-medium">Custo material</th>
+            <th className="px-5 py-3 font-medium">Duração</th>
             <th className="px-5 py-3 font-medium">Margem de contribuição</th>
           </tr>
         </thead>
@@ -59,6 +62,9 @@ export function ProdutosTable({ produtos }: { produtos: Produto[] }) {
                 </td>
                 <td className="px-5 py-4 text-foreground/70">
                   {formatarMoeda(produto.custoMedioMaterial)}
+                </td>
+                <td className="px-5 py-4 text-foreground/70">
+                  {formatarDuracao(produto.duracaoMinutos)}
                 </td>
                 <td className="px-5 py-4">
                   <span
