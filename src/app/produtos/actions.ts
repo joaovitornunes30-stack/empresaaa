@@ -13,7 +13,7 @@ const produtoSchema = z
     nome: z.string().trim().min(1, "Informe o nome do produto."),
     precoVenda: z.coerce
       .number()
-      .positive("Preço de venda deve ser maior que zero."),
+      .positive("Valor por hora deve ser maior que zero."),
     custoMedioMaterial: z.coerce
       .number()
       .min(0, "Custo médio não pode ser negativo."),

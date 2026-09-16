@@ -30,7 +30,7 @@ async function main() {
     create: {
       id: "produto-limpeza-pele",
       nome: "Limpeza de Pele",
-      precoVenda: 180,
+      precoVenda: 240, // R$/hora (procedimento de 45 min = R$ 180 no total)
       custoMedioMaterial: 25,
       duracaoMinutos: 45,
       comissaoTipo: "percentual",
@@ -46,7 +46,7 @@ async function main() {
     create: {
       id: "produto-botox",
       nome: "Aplicação de Botox",
-      precoVenda: 1200,
+      precoVenda: 2400, // R$/hora (procedimento de 30 min = R$ 1.200 no total)
       custoMedioMaterial: 480,
       duracaoMinutos: 30,
       comissaoTipo: "fixo",
@@ -62,7 +62,7 @@ async function main() {
     create: {
       id: "produto-peeling",
       nome: "Peeling Químico",
-      precoVenda: 350,
+      precoVenda: 350, // R$/hora (procedimento de 60 min = R$ 350 no total)
       custoMedioMaterial: 210,
       duracaoMinutos: 60,
       comissaoTipo: "percentual",

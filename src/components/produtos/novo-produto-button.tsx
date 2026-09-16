@@ -76,7 +76,7 @@ export function NovoProdutoButton({
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label htmlFor="precoVenda" className={labelClass}>
-                  Preço de venda (R$)
+                  Valor por hora (R$)
                 </label>
                 <input
                   id="precoVenda"

@@ -6,6 +6,10 @@ import {
   nivelMargem,
 } from "@/lib/calculos";
 
+function formatarDuracaoComValor(duracaoMinutos: number, precoVenda: number) {
+  return `${formatarDuracao(duracaoMinutos)} · ${formatarMoeda(precoVenda)}/h`;
+}
+
 type Produto = {
   id: string;
   nome: string;
@@ -36,15 +40,15 @@ export function ProdutosTable({ produtos }: { produtos: Produto[] }) {
           <tr className="border-b border-border bg-background/60 text-xs uppercase tracking-wide text-foreground/50">
             <th className="px-5 py-3 font-medium">Produto</th>
             <th className="px-5 py-3 font-medium">Perfil tributário</th>
-            <th className="px-5 py-3 font-medium">Preço de venda</th>
-            <th className="px-5 py-3 font-medium">Custo material</th>
             <th className="px-5 py-3 font-medium">Duração</th>
+            <th className="px-5 py-3 font-medium">Custo material</th>
+            <th className="px-5 py-3 font-medium">Preço total</th>
             <th className="px-5 py-3 font-medium">Margem de contribuição</th>
           </tr>
         </thead>
         <tbody>
           {produtos.map((produto) => {
-            const { margemReais, margemPercentual } =
+            const { margemReais, margemPercentual, precoTotal } =
               calcularMargemContribuicao(produto);
             const nivel = nivelMargem(margemPercentual);
 
@@ -58,13 +62,16 @@ export function ProdutosTable({ produtos }: { produtos: Produto[] }) {
                   {produto.perfilTributario.aliquota}%)
                 </td>
                 <td className="px-5 py-4 text-foreground/70">
-                  {formatarMoeda(produto.precoVenda)}
+                  {formatarDuracaoComValor(
+                    produto.duracaoMinutos,
+                    produto.precoVenda,
+                  )}
                 </td>
                 <td className="px-5 py-4 text-foreground/70">
                   {formatarMoeda(produto.custoMedioMaterial)}
                 </td>
                 <td className="px-5 py-4 text-foreground/70">
-                  {formatarDuracao(produto.duracaoMinutos)}
+                  {formatarMoeda(precoTotal)}
                 </td>
                 <td className="px-5 py-4">
                   <span
