@@ -15,16 +15,58 @@ export function classificarPrazo(dataVencimento: Date, hoje: Date = new Date()):
   return "longo";
 }
 
+export type DividaComParcelas = {
+  valor: number;
+  dataVencimento: Date;
+  status: string;
+  entradasSaida: { parcelas: { valor: number; dataVencimento: Date; status: string }[] }[];
+};
+
+/**
+ * Dívidas "em_pagamento" entram pelo valor das parcelas ainda não pagas,
+ * cada uma na janela da sua própria dataVencimento. Dívidas
+ * "nao_estruturada" entram pelo valor total, na janela da dataVencimento
+ * única cadastrada. Recalculado a cada carregamento, sempre relativo a
+ * `hoje` — não depende de nenhum job agendado.
+ */
 export function agruparDividasPorPrazo(
-  dividas: { valor: number; dataVencimento: Date }[],
+  dividas: DividaComParcelas[],
   hoje: Date = new Date(),
 ) {
   const totais: Record<Prazo, number> = { curto: 0, medio: 0, longo: 0 };
   for (const divida of dividas) {
-    const prazo = classificarPrazo(divida.dataVencimento, hoje);
-    totais[prazo] += divida.valor;
+    if (divida.status === "em_pagamento") {
+      for (const entradaSaida of divida.entradasSaida) {
+        for (const parcela of entradaSaida.parcelas) {
+          if (parcela.status !== "pendente") continue;
+          const prazo = classificarPrazo(parcela.dataVencimento, hoje);
+          totais[prazo] += parcela.valor;
+        }
+      }
+    } else {
+      const prazo = classificarPrazo(divida.dataVencimento, hoje);
+      totais[prazo] += divida.valor;
+    }
   }
   return totais;
+}
+
+/** Valor total original menos a soma das parcelas já pagas. */
+export function calcularSaldoDevedor(divida: DividaComParcelas) {
+  if (divida.status !== "em_pagamento") return divida.valor;
+  const totalPago = divida.entradasSaida
+    .flatMap((es) => es.parcelas)
+    .filter((parcela) => parcela.status === "pago")
+    .reduce((total, parcela) => total + parcela.valor, 0);
+  return divida.valor - totalPago;
+}
+
+export function contarParcelasPagas(divida: DividaComParcelas) {
+  const parcelas = divida.entradasSaida.flatMap((es) => es.parcelas);
+  return {
+    pagas: parcelas.filter((parcela) => parcela.status === "pago").length,
+    total: parcelas.length,
+  };
 }
 
 export function calcularSaldoAtual(

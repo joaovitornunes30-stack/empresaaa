@@ -11,6 +11,7 @@ import { ProjecaoCaixa } from "@/components/financeiro/projecao-caixa";
 import { EntradasSaidasTable } from "@/components/financeiro/entradas-saidas-table";
 import { NovaEntradaSaidaButton } from "@/components/financeiro/nova-entrada-saida-button";
 import { DividasManager } from "@/components/financeiro/dividas-manager";
+import { TodasDividasTable } from "@/components/financeiro/todas-dividas-table";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +23,10 @@ export default async function FinanceiroPage(props: PageProps<"/financeiro">) {
 
   const [dividas, todasEntradasSaidas, parcelasPendentes, entradasSaidasDoMes] =
     await Promise.all([
-      prisma.divida.findMany({ orderBy: { createdAt: "desc" } }),
+      prisma.divida.findMany({
+        orderBy: { createdAt: "desc" },
+        include: { entradasSaida: { include: { parcelas: true } } },
+      }),
       prisma.entradaSaida.findMany({ select: { tipo: true, valor: true } }),
       prisma.parcela.findMany({
         where: { status: "pendente" },
@@ -68,11 +72,18 @@ export default async function FinanceiroPage(props: PageProps<"/financeiro">) {
         <ProjecaoCaixa saldoAtual={saldoAtual} projecoes={projecoes} />
       </div>
 
-      <div>
+      <div className="mb-8">
         <h2 className="mb-3 font-display text-base font-semibold text-foreground">
           Dívidas por prazo
         </h2>
         <ResumoDividas totais={totaisPorPrazo} />
+      </div>
+
+      <div>
+        <h2 className="mb-3 font-display text-base font-semibold text-foreground">
+          Todas as Dívidas
+        </h2>
+        <TodasDividasTable dividas={dividas} />
       </div>
     </main>
   );

@@ -95,13 +95,44 @@ export async function criarEntradaSaida(
   return { error: null };
 }
 
-function gerarParcelasFixas(numeroParcelas: number, valorParcela: number, inicio: Date) {
-  return Array.from({ length: numeroParcelas }, (_, index) => ({
-    numeroParcela: index + 1,
-    valor: valorParcela,
-    dataVencimento: adicionarMeses(inicio, index),
-    status: "pendente",
-  }));
+/**
+ * Cada parcela mensal de uma dívida em pagamento vira o seu próprio
+ * EntradaSaida (categoria "Dívida"), com valor igual ao valor da parcela
+ * (nunca o total da dívida) e exatamente uma Parcela associada — assim ela
+ * aparece na listagem apenas no mês do seu vencimento, com o valor certo.
+ */
+async function gerarParcelasMensaisDaDivida(
+  dividaId: string,
+  numeroParcelas: number,
+  valorParcela: number,
+  descricao: string | undefined,
+  inicio: Date,
+) {
+  await prisma.$transaction(
+    Array.from({ length: numeroParcelas }, (_, index) => {
+      const dataVencimento = adicionarMeses(inicio, index);
+      return prisma.entradaSaida.create({
+        data: {
+          tipo: "saida",
+          categoria: "Dívida",
+          valor: valorParcela,
+          data: dataVencimento,
+          descricao,
+          dividaId,
+          parcelas: {
+            create: [
+              {
+                numeroParcela: index + 1,
+                valor: valorParcela,
+                dataVencimento,
+                status: "pendente",
+              },
+            ],
+          },
+        },
+      });
+    }),
+  );
 }
 
 const dividaSchema = z
@@ -154,7 +185,7 @@ export async function criarDivida(
       valorParcela ?? Math.round((valor / numeroParcelas) * 100) / 100;
     const hoje = new Date();
 
-    await prisma.divida.create({
+    const divida = await prisma.divida.create({
       data: {
         valor,
         dataVencimento,
@@ -162,20 +193,16 @@ export async function criarDivida(
         descricao,
         status,
         valorParcela: valorCadaParcela,
-        entradaSaida: {
-          create: {
-            tipo: "saida",
-            categoria: "Dívida",
-            valor: valorCadaParcela * numeroParcelas,
-            data: hoje,
-            descricao,
-            parcelas: {
-              create: gerarParcelasFixas(numeroParcelas, valorCadaParcela, hoje),
-            },
-          },
-        },
       },
     });
+
+    await gerarParcelasMensaisDaDivida(
+      divida.id,
+      numeroParcelas,
+      valorCadaParcela,
+      descricao,
+      hoje,
+    );
   } else {
     await prisma.divida.create({
       data: { valor, dataVencimento, numeroParcelas, descricao, status },
@@ -228,20 +255,16 @@ export async function ativarPagamentoDivida(
       status: "em_pagamento",
       numeroParcelas,
       valorParcela: valorCadaParcela,
-      entradaSaida: {
-        create: {
-          tipo: "saida",
-          categoria: "Dívida",
-          valor: valorCadaParcela * numeroParcelas,
-          data: hoje,
-          descricao: divida.descricao,
-          parcelas: {
-            create: gerarParcelasFixas(numeroParcelas, valorCadaParcela, hoje),
-          },
-        },
-      },
     },
   });
+
+  await gerarParcelasMensaisDaDivida(
+    id,
+    numeroParcelas,
+    valorCadaParcela,
+    divida.descricao ?? undefined,
+    hoje,
+  );
 
   revalidatePath("/financeiro");
   return { error: null };
