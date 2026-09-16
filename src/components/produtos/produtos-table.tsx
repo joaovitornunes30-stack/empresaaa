@@ -10,6 +10,16 @@ function formatarDuracaoComValor(duracaoMinutos: number, precoVenda: number) {
   return `${formatarDuracao(duracaoMinutos)} · ${formatarMoeda(precoVenda)}/h`;
 }
 
+function formatarComissao(
+  comissaoTipo: "percentual" | "fixo",
+  comissaoValor: number,
+  comissaoReais: number,
+) {
+  return comissaoTipo === "percentual"
+    ? `${formatarPercentual(comissaoValor)} · ${formatarMoeda(comissaoReais)}`
+    : `${formatarMoeda(comissaoValor)} (fixo)`;
+}
+
 type Produto = {
   id: string;
   nome: string;
@@ -43,12 +53,13 @@ export function ProdutosTable({ produtos }: { produtos: Produto[] }) {
             <th className="px-5 py-3 font-medium">Perfil tributário</th>
             <th className="px-5 py-3 font-medium">Duração</th>
             <th className="px-5 py-3 font-medium">Custo material</th>
+            <th className="px-5 py-3 font-medium">Comissão</th>
             <th className="px-5 py-3 font-medium">Margem de contribuição</th>
           </tr>
         </thead>
         <tbody>
           {produtos.map((produto) => {
-            const { margemReais, margemPercentual, precoTotal } =
+            const { margemReais, margemPercentual, precoTotal, comissao } =
               calcularMargemContribuicao(produto);
             const nivel = nivelMargem(margemPercentual);
 
@@ -72,6 +83,13 @@ export function ProdutosTable({ produtos }: { produtos: Produto[] }) {
                 </td>
                 <td className="px-5 py-4 text-foreground/70">
                   {formatarMoeda(produto.custoMedioMaterial)}
+                </td>
+                <td className="px-5 py-4 text-foreground/70">
+                  {formatarComissao(
+                    produto.comissaoTipo,
+                    produto.comissaoValor,
+                    comissao,
+                  )}
                 </td>
                 <td className="px-5 py-4">
                   <span
