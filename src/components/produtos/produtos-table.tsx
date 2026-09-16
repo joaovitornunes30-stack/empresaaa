@@ -39,10 +39,10 @@ export function ProdutosTable({ produtos }: { produtos: Produto[] }) {
         <thead>
           <tr className="border-b border-border bg-background/60 text-xs uppercase tracking-wide text-foreground/50">
             <th className="px-5 py-3 font-medium">Produto</th>
+            <th className="px-5 py-3 font-medium">Preço de venda</th>
             <th className="px-5 py-3 font-medium">Perfil tributário</th>
             <th className="px-5 py-3 font-medium">Duração</th>
             <th className="px-5 py-3 font-medium">Custo material</th>
-            <th className="px-5 py-3 font-medium">Preço total</th>
             <th className="px-5 py-3 font-medium">Margem de contribuição</th>
           </tr>
         </thead>
@@ -57,6 +57,9 @@ export function ProdutosTable({ produtos }: { produtos: Produto[] }) {
                 <td className="px-5 py-4 font-medium text-foreground">
                   {produto.nome}
                 </td>
+                <td className="px-5 py-4 font-medium text-foreground">
+                  {formatarMoeda(precoTotal)}
+                </td>
                 <td className="px-5 py-4 text-foreground/70">
                   {produto.perfilTributario.nome} (
                   {produto.perfilTributario.aliquota}%)
@@ -69,9 +72,6 @@ export function ProdutosTable({ produtos }: { produtos: Produto[] }) {
                 </td>
                 <td className="px-5 py-4 text-foreground/70">
                   {formatarMoeda(produto.custoMedioMaterial)}
-                </td>
-                <td className="px-5 py-4 text-foreground/70">
-                  {formatarMoeda(precoTotal)}
                 </td>
                 <td className="px-5 py-4">
                   <span
