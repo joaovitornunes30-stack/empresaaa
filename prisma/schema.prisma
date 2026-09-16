@@ -35,3 +35,33 @@ model Produto {
   perfilTributario   PerfilTributario @relation(fields: [perfilTributarioId], references: [id])
   createdAt          DateTime         @default(now())
 }
+
+model EntradaSaida {
+  id        String    @id @default(cuid())
+  tipo      String // "entrada" ou "saida"
+  categoria String // ex: "Material", "Aluguel", "Midia", "Salario", livre
+  valor     Float
+  data      DateTime
+  descricao String?
+  parcelas  Parcela[]
+  createdAt DateTime  @default(now())
+}
+
+model Parcela {
+  id             String       @id @default(cuid())
+  entradaSaidaId String
+  entradaSaida   EntradaSaida @relation(fields: [entradaSaidaId], references: [id])
+  numeroParcela  Int
+  valor          Float
+  dataVencimento DateTime
+  status         String // "pendente" ou "pago"
+}
+
+model Divida {
+  id             String   @id @default(cuid())
+  valor          Float
+  dataVencimento DateTime
+  numeroParcelas Int? // opcional
+  descricao      String?
+  createdAt      DateTime @default(now())
+}
