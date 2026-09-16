@@ -22,6 +22,9 @@ export function NovoProdutoButton({
   );
   const [submittedOnce, setSubmittedOnce] = useState(false);
   const [lastHandledState, setLastHandledState] = useState(state);
+  const [comissaoTipo, setComissaoTipo] = useState<"percentual" | "fixo">(
+    "percentual",
+  );
 
   if (state !== lastHandledState) {
     setLastHandledState(state);
@@ -101,6 +104,84 @@ export function NovoProdutoButton({
                   placeholder="0,00"
                 />
               </div>
+            </div>
+
+            <div>
+              <label htmlFor="duracaoMinutos" className={labelClass}>
+                Duração (minutos)
+              </label>
+              <input
+                id="duracaoMinutos"
+                name="duracaoMinutos"
+                type="number"
+                step="1"
+                min="1"
+                required
+                className={inputClass}
+                placeholder="Ex: 45"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="comissaoTipo" className={labelClass}>
+                  Tipo de comissão
+                </label>
+                <select
+                  id="comissaoTipo"
+                  name="comissaoTipo"
+                  required
+                  className={inputClass}
+                  value={comissaoTipo}
+                  onChange={(event) =>
+                    setComissaoTipo(event.target.value as "percentual" | "fixo")
+                  }
+                >
+                  <option value="percentual">Percentual (%)</option>
+                  <option value="fixo">Valor fixo (R$)</option>
+                </select>
+              </div>
+              <div>
+                <label htmlFor="comissaoValor" className={labelClass}>
+                  Comissão {comissaoTipo === "percentual" ? "(%)" : "(R$)"}
+                </label>
+                <input
+                  id="comissaoValor"
+                  name="comissaoValor"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max={comissaoTipo === "percentual" ? 100 : undefined}
+                  required
+                  className={inputClass}
+                  placeholder={comissaoTipo === "percentual" ? "0" : "0,00"}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label
+                htmlFor="divisorCustoEspaco"
+                className={`${labelClass} inline-flex items-center gap-1.5`}
+              >
+                Divisor de custo de espaço
+                <span
+                  title="Número mínimo de produtos/procedimentos costumeiramente executados em paralelo no mesmo espaço/horário. Usado futuramente para ratear o custo de estrutura por hora — por enquanto é apenas armazenado."
+                  className="flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-foreground/30 text-[10px] font-semibold leading-none text-foreground/50"
+                >
+                  ?
+                </span>
+              </label>
+              <input
+                id="divisorCustoEspaco"
+                name="divisorCustoEspaco"
+                type="number"
+                step="1"
+                min="1"
+                required
+                defaultValue={1}
+                className={inputClass}
+              />
             </div>
 
             <div>

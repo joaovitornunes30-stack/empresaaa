@@ -14,12 +14,24 @@ model PerfilTributario {
   produtos Produto[]
 }
 
+enum ComissaoTipo {
+  percentual
+  fixo
+}
+
 model Produto {
-  id                 String   @id @default(cuid())
+  id                 String           @id @default(cuid())
   nome               String
   precoVenda         Float
   custoMedioMaterial Float
+  duracaoMinutos     Int
+  comissaoTipo       ComissaoTipo
+  comissaoValor      Float
+  // Número mínimo de produtos/procedimentos costumeiramente executados em
+  // paralelo no mesmo espaço/horário. Usado futuramente para ratear custo de
+  // estrutura por hora; hoje é apenas armazenado, sem entrar em nenhum cálculo.
+  divisorCustoEspaco Int              @default(1)
   perfilTributarioId String
   perfilTributario   PerfilTributario @relation(fields: [perfilTributarioId], references: [id])
-  createdAt          DateTime @default(now())
+  createdAt          DateTime         @default(now())
 }

@@ -1,22 +1,25 @@
 import { prisma } from "../src/lib/prisma";
 
 async function main() {
-  const simples = await prisma.perfilTributario.upsert({
-    where: { id: "perfil-simples-nacional" },
+  // Nomes de exemplo genéricos, de propósito: o nome do perfil é texto livre
+  // definido pelo usuário (não um regime fixo), já que a Reforma Tributária
+  // pode mudar essas nomenclaturas a qualquer momento.
+  const perfilPadrao = await prisma.perfilTributario.upsert({
+    where: { id: "perfil-exemplo-padrao" },
     update: {},
     create: {
-      id: "perfil-simples-nacional",
-      nome: "Simples Nacional",
+      id: "perfil-exemplo-padrao",
+      nome: "Perfil Padrão",
       aliquota: 6,
     },
   });
 
-  const presumido = await prisma.perfilTributario.upsert({
-    where: { id: "perfil-lucro-presumido" },
+  const perfilAvancado = await prisma.perfilTributario.upsert({
+    where: { id: "perfil-exemplo-avancado" },
     update: {},
     create: {
-      id: "perfil-lucro-presumido",
-      nome: "Lucro Presumido",
+      id: "perfil-exemplo-avancado",
+      nome: "Perfil Avançado",
       aliquota: 11.33,
     },
   });
@@ -29,7 +32,11 @@ async function main() {
       nome: "Limpeza de Pele",
       precoVenda: 180,
       custoMedioMaterial: 25,
-      perfilTributarioId: simples.id,
+      duracaoMinutos: 45,
+      comissaoTipo: "percentual",
+      comissaoValor: 10,
+      divisorCustoEspaco: 1,
+      perfilTributarioId: perfilPadrao.id,
     },
   });
 
@@ -41,7 +48,11 @@ async function main() {
       nome: "Aplicação de Botox",
       precoVenda: 1200,
       custoMedioMaterial: 480,
-      perfilTributarioId: presumido.id,
+      duracaoMinutos: 30,
+      comissaoTipo: "fixo",
+      comissaoValor: 100,
+      divisorCustoEspaco: 1,
+      perfilTributarioId: perfilAvancado.id,
     },
   });
 
@@ -53,7 +64,11 @@ async function main() {
       nome: "Peeling Químico",
       precoVenda: 350,
       custoMedioMaterial: 210,
-      perfilTributarioId: simples.id,
+      duracaoMinutos: 60,
+      comissaoTipo: "percentual",
+      comissaoValor: 15,
+      divisorCustoEspaco: 2,
+      perfilTributarioId: perfilPadrao.id,
     },
   });
 }

@@ -10,6 +10,8 @@ type Produto = {
   nome: string;
   precoVenda: number;
   custoMedioMaterial: number;
+  comissaoTipo: "percentual" | "fixo";
+  comissaoValor: number;
   perfilTributario: { nome: string; aliquota: number };
 };
 

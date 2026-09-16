@@ -8,14 +8,39 @@ export type ActionState = {
   error: string | null;
 };
 
-const produtoSchema = z.object({
-  nome: z.string().trim().min(1, "Informe o nome do produto."),
-  precoVenda: z.coerce.number().positive("Preço de venda deve ser maior que zero."),
-  custoMedioMaterial: z.coerce
-    .number()
-    .min(0, "Custo médio não pode ser negativo."),
-  perfilTributarioId: z.string().trim().min(1, "Selecione um perfil tributário."),
-});
+const produtoSchema = z
+  .object({
+    nome: z.string().trim().min(1, "Informe o nome do produto."),
+    precoVenda: z.coerce
+      .number()
+      .positive("Preço de venda deve ser maior que zero."),
+    custoMedioMaterial: z.coerce
+      .number()
+      .min(0, "Custo médio não pode ser negativo."),
+    duracaoMinutos: z.coerce
+      .number()
+      .int("Duração deve ser um número inteiro de minutos.")
+      .positive("Duração deve ser maior que zero."),
+    comissaoTipo: z.enum(["percentual", "fixo"], {
+      error: "Selecione o tipo de comissão.",
+    }),
+    comissaoValor: z.coerce.number().min(0, "Comissão não pode ser negativa."),
+    divisorCustoEspaco: z.coerce
+      .number()
+      .int("Divisor de custo de espaço deve ser um número inteiro.")
+      .min(1, "Divisor de custo de espaço deve ser no mínimo 1."),
+    perfilTributarioId: z
+      .string()
+      .trim()
+      .min(1, "Selecione um perfil tributário."),
+  })
+  .refine(
+    (data) => data.comissaoTipo !== "percentual" || data.comissaoValor <= 100,
+    {
+      message: "Comissão percentual não pode ser maior que 100%.",
+      path: ["comissaoValor"],
+    },
+  );
 
 export async function criarProduto(
   _prevState: ActionState,
@@ -25,6 +50,10 @@ export async function criarProduto(
     nome: formData.get("nome"),
     precoVenda: formData.get("precoVenda"),
     custoMedioMaterial: formData.get("custoMedioMaterial"),
+    duracaoMinutos: formData.get("duracaoMinutos"),
+    comissaoTipo: formData.get("comissaoTipo"),
+    comissaoValor: formData.get("comissaoValor"),
+    divisorCustoEspaco: formData.get("divisorCustoEspaco"),
     perfilTributarioId: formData.get("perfilTributarioId"),
   });
 
