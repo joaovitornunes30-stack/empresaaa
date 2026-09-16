@@ -20,6 +20,11 @@ const entradaSaidaSchema = z
       .trim()
       .optional()
       .transform((value) => (value ? value : undefined)),
+    nomePrestador: z
+      .string()
+      .trim()
+      .optional()
+      .transform((value) => (value ? value : undefined)),
     parcelado: z.coerce.boolean().optional(),
     numeroParcelas: z.coerce.number().int().optional(),
   })
@@ -41,6 +46,7 @@ export async function criarEntradaSaida(
     valor: formData.get("valor"),
     data: formData.get("data"),
     descricao: formData.get("descricao"),
+    nomePrestador: formData.get("nomePrestador"),
     parcelado: formData.get("parcelado") === "on",
     numeroParcelas: formData.get("numeroParcelas") || undefined,
   });
@@ -49,8 +55,16 @@ export async function criarEntradaSaida(
     return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
   }
 
-  const { tipo, categoria, valor, data, descricao, parcelado, numeroParcelas } =
-    parsed.data;
+  const {
+    tipo,
+    categoria,
+    valor,
+    data,
+    descricao,
+    nomePrestador,
+    parcelado,
+    numeroParcelas,
+  } = parsed.data;
 
   await prisma.entradaSaida.create({
     data: {
@@ -59,6 +73,7 @@ export async function criarEntradaSaida(
       valor,
       data,
       descricao,
+      nomePrestador: categoria === "Prestador de Serviço" ? nomePrestador : undefined,
       ...(parcelado && numeroParcelas
         ? {
             parcelas: {

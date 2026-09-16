@@ -58,10 +58,7 @@ export default async function FinanceiroPage(props: PageProps<"/financeiro">) {
       </header>
 
       <div className="mb-8">
-        <h2 className="mb-3 font-display text-base font-semibold text-foreground">
-          Dívidas por prazo
-        </h2>
-        <ResumoDividas totais={totaisPorPrazo} />
+        <EntradasSaidasTable itens={entradasSaidasDoMes} mes={mes} />
       </div>
 
       <div className="mb-8">
@@ -71,7 +68,12 @@ export default async function FinanceiroPage(props: PageProps<"/financeiro">) {
         <ProjecaoCaixa saldoAtual={saldoAtual} projecoes={projecoes} />
       </div>
 
-      <EntradasSaidasTable itens={entradasSaidasDoMes} mes={mes} />
+      <div>
+        <h2 className="mb-3 font-display text-base font-semibold text-foreground">
+          Dívidas por prazo
+        </h2>
+        <ResumoDividas totais={totaisPorPrazo} />
+      </div>
     </main>
   );
 }

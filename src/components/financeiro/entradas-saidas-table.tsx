@@ -15,6 +15,7 @@ type EntradaSaida = {
   valor: number;
   data: Date;
   descricao: string | null;
+  nomePrestador: string | null;
   parcelas: Parcela[];
 };
 
@@ -91,6 +92,12 @@ export function EntradasSaidasTable({
                     </td>
                     <td className="px-5 py-4 text-foreground/70">
                       {item.categoria}
+                      {item.nomePrestador && (
+                        <span className="text-foreground/50">
+                          {" "}
+                          · {item.nomePrestador}
+                        </span>
+                      )}
                     </td>
                     <td className="px-5 py-4 font-medium text-foreground">
                       {formatarMoeda(item.valor)}

@@ -10,18 +10,23 @@ const inputClass =
   "w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20";
 const labelClass = "mb-1.5 block text-sm font-medium text-foreground/80";
 
-const CATEGORIAS_SUGERIDAS = [
-  "Material",
-  "Aluguel",
-  "Salário",
-  "Mídia",
-  "Impostos",
-  "Outros",
-];
+const CATEGORIAS_POR_TIPO: Record<"entrada" | "saida", string[]> = {
+  entrada: ["Vendas", "Outras Entradas"],
+  saida: [
+    "Material",
+    "Aluguel",
+    "Mídia",
+    "Impostos",
+    "Salário",
+    "Prestador de Serviço",
+  ],
+};
 
 export function NovaEntradaSaidaButton() {
   const [open, setOpen] = useState(false);
   const [parcelado, setParcelado] = useState(false);
+  const [tipo, setTipo] = useState<"entrada" | "saida">("entrada");
+  const [categoria, setCategoria] = useState("");
   const [state, formAction, pending] = useActionState(
     criarEntradaSaida,
     initialState,
@@ -33,7 +38,16 @@ export function NovaEntradaSaidaButton() {
     if (!state.error) {
       setOpen(false);
       setParcelado(false);
+      setTipo("entrada");
+      setCategoria("");
     }
+  }
+
+  function handleClose() {
+    setOpen(false);
+    setParcelado(false);
+    setTipo("entrada");
+    setCategoria("");
   }
 
   return (
@@ -47,13 +61,23 @@ export function NovaEntradaSaidaButton() {
       </button>
 
       {open && (
-        <Modal title="Nova Entrada/Saída" onClose={() => setOpen(false)}>
+        <Modal title="Nova Entrada/Saída" onClose={handleClose}>
           <form action={formAction} className="flex flex-col gap-4">
             <div>
               <label htmlFor="tipo" className={labelClass}>
                 Tipo
               </label>
-              <select id="tipo" name="tipo" required className={inputClass}>
+              <select
+                id="tipo"
+                name="tipo"
+                required
+                className={inputClass}
+                value={tipo}
+                onChange={(event) => {
+                  setTipo(event.target.value as "entrada" | "saida");
+                  setCategoria("");
+                }}
+              >
                 <option value="entrada">Entrada</option>
                 <option value="saida">Saída</option>
               </select>
@@ -70,14 +94,31 @@ export function NovaEntradaSaidaButton() {
                 list="categorias-sugeridas"
                 required
                 className={inputClass}
-                placeholder="Ex: Material"
+                placeholder={`Ex: ${CATEGORIAS_POR_TIPO[tipo][0]}`}
+                value={categoria}
+                onChange={(event) => setCategoria(event.target.value)}
               />
               <datalist id="categorias-sugeridas">
-                {CATEGORIAS_SUGERIDAS.map((categoria) => (
-                  <option key={categoria} value={categoria} />
+                {CATEGORIAS_POR_TIPO[tipo].map((sugestao) => (
+                  <option key={sugestao} value={sugestao} />
                 ))}
               </datalist>
             </div>
+
+            {categoria === "Prestador de Serviço" && (
+              <div>
+                <label htmlFor="nomePrestador" className={labelClass}>
+                  Nome do prestador (opcional)
+                </label>
+                <input
+                  id="nomePrestador"
+                  name="nomePrestador"
+                  type="text"
+                  className={inputClass}
+                  placeholder='Ex: "Contador" ou "Fulano - Marketing"'
+                />
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -160,7 +201,7 @@ export function NovaEntradaSaidaButton() {
             <div className="mt-2 flex justify-end gap-3">
               <button
                 type="button"
-                onClick={() => setOpen(false)}
+                onClick={handleClose}
                 className="rounded-xl px-4 py-2.5 text-sm font-medium text-foreground/70 hover:bg-foreground/5"
               >
                 Cancelar

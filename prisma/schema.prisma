@@ -37,14 +37,16 @@ model Produto {
 }
 
 model EntradaSaida {
-  id        String    @id @default(cuid())
-  tipo      String // "entrada" ou "saida"
-  categoria String // ex: "Material", "Aluguel", "Midia", "Salario", livre
-  valor     Float
-  data      DateTime
-  descricao String?
-  parcelas  Parcela[]
-  createdAt DateTime  @default(now())
+  id            String    @id @default(cuid())
+  tipo          String // "entrada" ou "saida"
+  categoria     String // ex: "Material", "Aluguel", "Midia", "Salario", livre
+  valor         Float
+  data          DateTime
+  descricao     String?
+  // Preenchido quando categoria = "Prestador de Serviço".
+  nomePrestador String?
+  parcelas      Parcela[]
+  createdAt     DateTime  @default(now())
 }
 
 model Parcela {
