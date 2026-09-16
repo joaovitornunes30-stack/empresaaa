@@ -1,0 +1,82 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model PerfilTributario {
+  id       String    @id @default(cuid())
+  nome     String
+  aliquota Float // percentual, ex: 8.0 = 8%
+  produtos Produto[]
+}
+
+enum ComissaoTipo {
+  percentual
+  fixo
+}
+
+model Produto {
+  id                 String           @id @default(cuid())
+  nome               String
+  precoVenda         Float
+  custoMedioMaterial Float
+  duracaoMinutos     Int
+  comissaoTipo       ComissaoTipo
+  comissaoValor      Float
+  // Número mínimo de produtos/procedimentos costumeiramente executados em
+  // paralelo no mesmo espaço/horário. Usado futuramente para ratear custo de
+  // estrutura por hora; hoje é apenas armazenado, sem entrar em nenhum cálculo.
+  divisorCustoEspaco Int              @default(1)
+  perfilTributarioId String
+  perfilTributario   PerfilTributario @relation(fields: [perfilTributarioId], references: [id])
+  createdAt          DateTime         @default(now())
+}
+
+model EntradaSaida {
+  id            String    @id @default(cuid())
+  tipo          String // "entrada" ou "saida"
+  categoria     String // ex: "Material", "Aluguel", "Midia", "Salario", livre
+  valor         Float
+  data          DateTime
+  descricao     String?
+  // Preenchido quando categoria = "Prestador de Serviço".
+  nomePrestador String?
+  parcelas      Parcela[]
+  // Presente quando este registro foi gerado automaticamente para uma
+  // parcela mensal de uma Divida marcada como "em_pagamento". Cada parcela
+  // mensal vira o seu próprio EntradaSaida (valor = valorParcela daquele
+  // mês), nunca o valor total da dívida.
+  dividaId      String?
+  divida        Divida?   @relation(fields: [dividaId], references: [id])
+  createdAt     DateTime  @default(now())
+}
+
+model Parcela {
+  id             String       @id @default(cuid())
+  entradaSaidaId String
+  entradaSaida   EntradaSaida @relation(fields: [entradaSaidaId], references: [id])
+  numeroParcela  Int
+  valor          Float
+  dataVencimento DateTime
+  status         String // "pendente" ou "pago"
+}
+
+model Divida {
+  id             String         @id @default(cuid())
+  valor          Float
+  dataVencimento DateTime
+  numeroParcelas Int? // opcional
+  descricao      String?
+  // "em_pagamento" ou "nao_estruturada"
+  status         String         @default("nao_estruturada")
+  // Valor de cada parcela mensal; obrigatório se status = "em_pagamento".
+  valorParcela   Float?
+  // Um EntradaSaida (categoria "Dívida") por parcela mensal, gerados
+  // automaticamente quando status = "em_pagamento".
+  entradasSaida  EntradaSaida[]
+  createdAt      DateTime       @default(now())
+}
