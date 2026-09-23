@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { criarEntradaSaida, type ActionState } from "@/app/financeiro/actions";
 import { Modal } from "@/components/ui/modal";
+import { INTERVALOS_PLANO } from "@/lib/planos";
 
 const initialState: ActionState = { error: null };
 
@@ -23,6 +24,8 @@ export function NovaVendaClienteButton({
 }) {
   const [open, setOpen] = useState(false);
   const [produtoId, setProdutoId] = useState("");
+  const [ehPlano, setEhPlano] = useState(false);
+  const [intervaloPlano, setIntervaloPlano] = useState("");
   const [state, formAction, pending] = useActionState(criarEntradaSaida, initialState);
   const [submittedOnce, setSubmittedOnce] = useState(false);
   const [lastHandledState, setLastHandledState] = useState(state);
@@ -33,12 +36,16 @@ export function NovaVendaClienteButton({
       setOpen(false);
       setSubmittedOnce(false);
       setProdutoId("");
+      setEhPlano(false);
+      setIntervaloPlano("");
     }
   }
 
   function handleClose() {
     setOpen(false);
     setProdutoId("");
+    setEhPlano(false);
+    setIntervaloPlano("");
   }
 
   return (
@@ -79,7 +86,11 @@ export function NovaVendaClienteButton({
                   name="produtoId"
                   className={inputClass}
                   value={produtoId}
-                  onChange={(event) => setProdutoId(event.target.value)}
+                  onChange={(event) => {
+                    setProdutoId(event.target.value);
+                    setEhPlano(false);
+                    setIntervaloPlano("");
+                  }}
                 >
                   <option value="">Nenhum</option>
                   {produtos.map((produto) => (
@@ -108,6 +119,71 @@ export function NovaVendaClienteButton({
                 <p className="mt-1 text-xs text-foreground/50">
                   Baixa automaticamente do estoque desse produto.
                 </p>
+              </div>
+            )}
+
+            {produtoId && (
+              <label className="flex items-center gap-2 text-sm font-medium text-foreground/80">
+                <input
+                  type="checkbox"
+                  name="ehPlano"
+                  checked={ehPlano}
+                  onChange={(event) => setEhPlano(event.target.checked)}
+                  className="h-4 w-4 rounded border-border accent-primary"
+                />
+                Este é um plano com múltiplas sessões?
+              </label>
+            )}
+
+            {produtoId && ehPlano && (
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="numeroSessoesPlano" className={labelClass}>
+                    Número de sessões
+                  </label>
+                  <input
+                    id="numeroSessoesPlano"
+                    name="numeroSessoesPlano"
+                    type="number"
+                    step="1"
+                    min="2"
+                    required={ehPlano}
+                    className={inputClass}
+                    placeholder="Ex: 4"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="intervaloPlano" className={labelClass}>
+                    Intervalo entre sessões
+                  </label>
+                  <select
+                    id="intervaloPlano"
+                    className={inputClass}
+                    value={intervaloPlano}
+                    onChange={(event) => setIntervaloPlano(event.target.value)}
+                  >
+                    <option value="">Selecione</option>
+                    {INTERVALOS_PLANO.map((intervalo) => (
+                      <option key={intervalo.dias} value={intervalo.dias}>
+                        {intervalo.label}
+                      </option>
+                    ))}
+                    <option value="personalizado">Personalizado</option>
+                  </select>
+                </div>
+                {intervaloPlano === "personalizado" ? (
+                  <input
+                    name="intervaloDiasPlano"
+                    type="number"
+                    step="1"
+                    min="1"
+                    required={ehPlano}
+                    className={inputClass}
+                    placeholder="Dias entre sessões"
+                  />
+                ) : (
+                  <input type="hidden" name="intervaloDiasPlano" value={intervaloPlano} />
+                )}
               </div>
             )}
 

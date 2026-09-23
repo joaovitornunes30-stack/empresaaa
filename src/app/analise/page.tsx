@@ -13,8 +13,10 @@ import {
   gerarResumoDoMes,
   ultimosMeses,
 } from "@/lib/analise";
+import { calcularReceitaReconhecidaMes, calcularSessoesPendentesMes } from "@/lib/planos";
 import { MetaDoMesCard } from "@/components/analise/meta-do-mes-card";
 import { FaturamentoVsCaixa } from "@/components/analise/faturamento-vs-caixa";
+import { SessoesPendentesCard } from "@/components/analise/sessoes-pendentes-card";
 import { EstoqueSection, type EstoqueProduto } from "@/components/analise/estoque-section";
 import { RegistrarMovimentoEstoqueButton } from "@/components/analise/registrar-movimento-estoque-button";
 import { ComposicaoFaturamento } from "@/components/analise/composicao-faturamento";
@@ -41,6 +43,8 @@ export default async function AnalisePage() {
     movimentosEstoque,
     metaDoMes,
     entradasSaidasUltimos6Meses,
+    sessoesComPlanoResumo,
+    sessoesPendentesDoMes,
   ] = await Promise.all([
     prisma.entradaSaida.findMany({
       where: { data: { gte: inicio, lt: fim } },
@@ -69,6 +73,14 @@ export default async function AnalisePage() {
       where: { data: { gte: inicioJanela6Meses, lt: fim } },
       select: { tipo: true, valor: true, data: true },
     }),
+    prisma.sessao.findMany({
+      select: {
+        status: true,
+        dataEntregue: true,
+        plano: { select: { valorTotal: true, numeroSessoes: true } },
+      },
+    }),
+    prisma.sessao.findMany({ select: { dataPrevista: true, status: true } }),
   ]);
 
   const faturamentoMes = calcularFaturamentoMes(entradasSaidasDoMes);
@@ -78,6 +90,8 @@ export default async function AnalisePage() {
   const totaisPorPrazo = agruparDividasPorPrazo(dividas);
   const composicao = calcularComposicaoFaturamento(entradasSaidasDoMes, produtos);
   const comparativo = calcularComparativoMensal(entradasSaidasUltimos6Meses, meses6);
+  const receitaReconhecidaMes = calcularReceitaReconhecidaMes(sessoesComPlanoResumo, mes);
+  const sessoesPendentesMes = calcularSessoesPendentesMes(sessoesPendentesDoMes, mes);
 
   const estoquePorProduto: EstoqueProduto[] = produtos.map((produto) => {
     const movimentosDoProduto = movimentosEstoque.filter(
@@ -121,8 +135,16 @@ export default async function AnalisePage() {
       <div className="mb-8 grid grid-cols-1 gap-4 lg:grid-cols-3">
         <MetaDoMesCard mes={mes} valorMeta={metaDoMes?.valorMeta ?? null} vendasMes={vendasMes} />
         <div className="lg:col-span-2">
-          <FaturamentoVsCaixa faturamentoMes={faturamentoMes} caixaMes={caixaMes} />
+          <FaturamentoVsCaixa
+            faturamentoMes={faturamentoMes}
+            caixaMes={caixaMes}
+            receitaReconhecidaMes={receitaReconhecidaMes}
+          />
         </div>
+      </div>
+
+      <div className="mb-8">
+        <SessoesPendentesCard quantidade={sessoesPendentesMes} />
       </div>
 
       <div className="mb-8">

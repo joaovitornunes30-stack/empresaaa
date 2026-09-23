@@ -35,6 +35,7 @@ model Produto {
   perfilTributario   PerfilTributario   @relation(fields: [perfilTributarioId], references: [id])
   entradasSaida      EntradaSaida[]
   movimentosEstoque  EstoqueMovimento[]
+  planos             Plano[]
   createdAt          DateTime           @default(now())
 }
 
@@ -87,7 +88,36 @@ model Cliente {
   indicadoPor   Cliente?       @relation("Indicacoes", fields: [indicadoPorId], references: [id])
   indicados     Cliente[]      @relation("Indicacoes")
   entradasSaida EntradaSaida[]
+  planos        Plano[]
   createdAt     DateTime       @default(now())
+}
+
+model Plano {
+  id            String    @id @default(cuid())
+  clienteId     String?
+  cliente       Cliente?  @relation(fields: [clienteId], references: [id])
+  produtoId     String
+  produto       Produto   @relation(fields: [produtoId], references: [id])
+  valorTotal    Float
+  numeroSessoes Int
+  // ex: 7 (semanal), 14 (quinzenal), 30 (mensal), 60 — espaçamento padrão
+  // sugerido entre sessões, em dias.
+  intervaloDias Int
+  dataVenda     DateTime
+  createdAt     DateTime  @default(now())
+  sessoes       Sessao[]
+}
+
+model Sessao {
+  id           String    @id @default(cuid())
+  planoId      String
+  plano        Plano     @relation(fields: [planoId], references: [id])
+  numero       Int // 1, 2, 3, 4...
+  dataPrevista DateTime
+  // "pendente", "entregue", "perdida" ou "postergada"
+  status       String
+  // Preenchida quando marcada como entregue.
+  dataEntregue DateTime?
 }
 
 model Parcela {

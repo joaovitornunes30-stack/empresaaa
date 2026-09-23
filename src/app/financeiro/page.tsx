@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import {
   agruparDividasPorPrazo,
@@ -64,6 +65,12 @@ export default async function FinanceiroPage(props: PageProps<"/financeiro">) {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <Link
+            href="/financeiro/planos"
+            className="rounded-xl border border-border bg-surface px-4 py-2.5 text-sm font-medium text-foreground/70 hover:border-primary hover:text-primary-dark"
+          >
+            Planos
+          </Link>
           <DividasManager dividas={dividas} />
           <NovaEntradaSaidaButton produtos={produtos} />
         </div>

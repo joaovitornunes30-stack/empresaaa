@@ -14,12 +14,14 @@ function InfoTooltip({ texto }: { texto: string }) {
 export function FaturamentoVsCaixa({
   faturamentoMes,
   caixaMes,
+  receitaReconhecidaMes,
 }: {
   faturamentoMes: number;
   caixaMes: number;
+  receitaReconhecidaMes: number;
 }) {
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
       <div className="rounded-2xl border border-border bg-surface p-5">
         <p className="inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-foreground/50">
           Faturamento do mês
@@ -36,6 +38,15 @@ export function FaturamentoVsCaixa({
         </p>
         <p className="mt-2 font-display text-2xl font-bold text-foreground">
           {formatarMoeda(caixaMes)}
+        </p>
+      </div>
+      <div className="rounded-2xl border border-border bg-surface p-5">
+        <p className="inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-foreground/50">
+          Receita reconhecida
+          <InfoTooltip texto="Soma do valor por sessão de cada Sessão de um Plano entregue neste mês — não muda com antecipação, só quando a sessão é de fato marcada como entregue." />
+        </p>
+        <p className="mt-2 font-display text-2xl font-bold text-foreground">
+          {formatarMoeda(receitaReconhecidaMes)}
         </p>
       </div>
     </div>

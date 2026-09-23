@@ -24,6 +24,26 @@ export function calcularComissao(produto: ProdutoComPerfil) {
     : (precoTotal * produto.comissaoValor) / 100;
 }
 
+export type ProdutoParaCusto = Pick<
+  ProdutoComPerfil,
+  "custoMedioMaterial" | "comissaoTipo" | "comissaoValor" | "perfilTributario"
+>;
+
+/**
+ * Custo total (material + imposto + comissão) para um valor de venda
+ * qualquer — não necessariamente o preço de catálogo do produto. Usado
+ * para o custo por sessão de um Plano, onde a base é o valor da sessão
+ * (valorTotal do plano / numeroSessoes), não o precoVenda do produto.
+ */
+export function calcularCustoComBase(produto: ProdutoParaCusto, valorBase: number) {
+  const impostos = (valorBase * produto.perfilTributario.aliquota) / 100;
+  const comissao =
+    produto.comissaoTipo === "fixo"
+      ? produto.comissaoValor
+      : (valorBase * produto.comissaoValor) / 100;
+  return produto.custoMedioMaterial + impostos + comissao;
+}
+
 export function calcularMargemContribuicao(produto: ProdutoComPerfil) {
   const precoTotal = calcularPrecoTotal(produto);
   const impostos = (precoTotal * produto.perfilTributario.aliquota) / 100;

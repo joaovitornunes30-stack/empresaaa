@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { adicionarMeses, calcularValoresParcelas } from "@/lib/financeiro";
+import { gerarDatasPrevistas } from "@/lib/planos";
 
 export type ActionState = {
   error: string | null;
@@ -50,6 +51,9 @@ const entradaSaidaSchema = z
       .optional(),
     parcelado: z.coerce.boolean().optional(),
     numeroParcelas: z.coerce.number().int().optional(),
+    ehPlano: z.coerce.boolean().optional(),
+    numeroSessoesPlano: z.coerce.number().int().optional(),
+    intervaloDiasPlano: z.coerce.number().int().positive().optional(),
   })
   .refine(
     (data) => !data.parcelado || (data.numeroParcelas ?? 0) >= 2,
@@ -57,7 +61,19 @@ const entradaSaidaSchema = z
       message: "Informe ao menos 2 parcelas.",
       path: ["numeroParcelas"],
     },
-  );
+  )
+  .refine((data) => !data.ehPlano || !!data.produtoId, {
+    message: "Selecione um produto para criar um plano.",
+    path: ["produtoId"],
+  })
+  .refine((data) => !data.ehPlano || (data.numeroSessoesPlano ?? 0) >= 2, {
+    message: "Um plano precisa de pelo menos 2 sessões.",
+    path: ["numeroSessoesPlano"],
+  })
+  .refine((data) => !data.ehPlano || !!data.intervaloDiasPlano, {
+    message: "Informe o intervalo entre as sessões do plano.",
+    path: ["intervaloDiasPlano"],
+  });
 
 export async function criarEntradaSaida(
   _prevState: ActionState,
@@ -77,6 +93,9 @@ export async function criarEntradaSaida(
     dataProximoRetorno: formData.get("dataProximoRetorno") || undefined,
     parcelado: formData.get("parcelado") === "on",
     numeroParcelas: formData.get("numeroParcelas") || undefined,
+    ehPlano: formData.get("ehPlano") === "on",
+    numeroSessoesPlano: formData.get("numeroSessoesPlano") || undefined,
+    intervaloDiasPlano: formData.get("intervaloDiasPlano") || undefined,
   });
 
   if (!parsed.success) {
@@ -97,9 +116,13 @@ export async function criarEntradaSaida(
     dataProximoRetorno,
     parcelado,
     numeroParcelas,
+    ehPlano,
+    numeroSessoesPlano,
+    intervaloDiasPlano,
   } = parsed.data;
 
   const produtoVendidoId = tipo === "entrada" ? produtoId : undefined;
+  const clienteVendaId = tipo === "entrada" ? clienteId : undefined;
 
   await prisma.$transaction(async (tx) => {
     await tx.entradaSaida.create({
@@ -111,7 +134,7 @@ export async function criarEntradaSaida(
         descricao,
         nomePrestador: categoria === "Prestador de Serviço" ? nomePrestador : undefined,
         produtoId: produtoVendidoId,
-        clienteId: tipo === "entrada" ? clienteId : undefined,
+        clienteId: clienteVendaId,
         fechadoPor: tipo === "entrada" ? fechadoPor : undefined,
         dataProximoRetorno: tipo === "entrada" ? dataProximoRetorno : undefined,
         ...(parcelado && numeroParcelas
@@ -144,9 +167,35 @@ export async function criarEntradaSaida(
         },
       });
     }
+
+    // Uma venda marcada como plano de múltiplas sessões gera o Plano e já
+    // agenda as N Sessoes (todas "pendente"), espaçadas por intervaloDias.
+    if (produtoVendidoId && ehPlano && numeroSessoesPlano && intervaloDiasPlano) {
+      const plano = await tx.plano.create({
+        data: {
+          clienteId: clienteVendaId,
+          produtoId: produtoVendidoId,
+          valorTotal: valor,
+          numeroSessoes: numeroSessoesPlano,
+          intervaloDias: intervaloDiasPlano,
+          dataVenda: data,
+        },
+      });
+
+      const datasPrevistas = gerarDatasPrevistas(data, numeroSessoesPlano, intervaloDiasPlano);
+      await tx.sessao.createMany({
+        data: datasPrevistas.map((dataPrevista, index) => ({
+          planoId: plano.id,
+          numero: index + 1,
+          dataPrevista,
+          status: "pendente",
+        })),
+      });
+    }
   });
 
   revalidatePath("/financeiro");
+  revalidatePath("/financeiro/planos");
   revalidatePath("/analise");
   revalidatePath("/clientes");
   return { error: null };

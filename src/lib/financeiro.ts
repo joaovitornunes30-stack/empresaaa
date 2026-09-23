@@ -137,6 +137,12 @@ export function adicionarMeses(data: Date, meses: number) {
   return resultado;
 }
 
+export function adicionarDias(data: Date, dias: number) {
+  const resultado = new Date(data);
+  resultado.setDate(resultado.getDate() + dias);
+  return resultado;
+}
+
 export function calcularValoresParcelas(valorTotal: number, numeroParcelas: number) {
   const base = Math.floor((valorTotal / numeroParcelas) * 100) / 100;
   const valores = Array.from({ length: numeroParcelas }, () => base);
