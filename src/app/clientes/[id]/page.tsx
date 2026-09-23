@@ -6,6 +6,7 @@ import { formatarData, formatarMoeda } from "@/lib/financeiro";
 import { HistoricoVendasTable } from "@/components/clientes/historico-vendas-table";
 import { NovaVendaClienteButton } from "@/components/clientes/nova-venda-cliente-button";
 import { EditarClienteButton } from "@/components/clientes/novo-cliente-button";
+import { NovoPlanoButton } from "@/components/financeiro/novo-plano-button";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +15,7 @@ export default async function ClienteDetalhePage(
 ) {
   const { id } = await props.params;
 
-  const [cliente, produtos, todosClientes] = await Promise.all([
+  const [cliente, produtos, todosClientes, modelos] = await Promise.all([
     prisma.cliente.findUnique({
       where: { id },
       include: {
@@ -29,6 +30,10 @@ export default async function ClienteDetalhePage(
     }),
     prisma.produto.findMany({ select: { id: true, nome: true }, orderBy: { nome: "asc" } }),
     prisma.cliente.findMany({ select: { id: true, nome: true }, orderBy: { nome: "asc" } }),
+    prisma.planoModelo.findMany({
+      orderBy: { nome: "asc" },
+      include: { itens: { select: { produtoId: true, quantidadeSessoes: true, valorItem: true, intervaloDias: true } } },
+    }),
   ]);
 
   if (!cliente) notFound();
@@ -78,7 +83,15 @@ export default async function ClienteDetalhePage(
             </p>
           )}
         </div>
-        <NovaVendaClienteButton clienteId={cliente.id} produtos={produtos} />
+        <div className="flex gap-3">
+          <NovoPlanoButton
+            produtos={produtos}
+            modelos={modelos}
+            clienteId={cliente.id}
+            nomeCliente={cliente.nome}
+          />
+          <NovaVendaClienteButton clienteId={cliente.id} produtos={produtos} />
+        </div>
       </header>
 
       <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2">

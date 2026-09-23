@@ -1,5 +1,5 @@
 import { adicionarDias, limitesDoMes } from "@/lib/financeiro";
-import { calcularCustoComBase, type ProdutoParaCusto } from "@/lib/calculos";
+import { calcularCustoComAliquota, type ProdutoParaCustoComAliquota } from "@/lib/calculos";
 
 export const INTERVALOS_PLANO = [
   { label: "Semanal", dias: 7 },
@@ -13,87 +13,119 @@ export function sessaoEhAcionavel(status: string) {
   return status === "pendente" || status === "postergada";
 }
 
-export function calcularValorSessao(plano: { valorTotal: number; numeroSessoes: number }) {
-  return plano.numeroSessoes > 0 ? plano.valorTotal / plano.numeroSessoes : 0;
+export function calcularValorSessaoItem(item: { valorItem: number; quantidadeSessoes: number }) {
+  return item.quantidadeSessoes > 0 ? item.valorItem / item.quantidadeSessoes : 0;
 }
 
-/** Datas previstas para cada sessão: dataVenda + intervaloDias × (numero - 1). */
-export function gerarDatasPrevistas(dataVenda: Date, numeroSessoes: number, intervaloDias: number) {
-  return Array.from({ length: numeroSessoes }, (_, indice) =>
+/** Datas previstas para cada sessão de um item: dataVenda + intervaloDias × (numero - 1). */
+export function gerarDatasPrevistas(dataVenda: Date, quantidadeSessoes: number, intervaloDias: number) {
+  return Array.from({ length: quantidadeSessoes }, (_, indice) =>
     adicionarDias(dataVenda, intervaloDias * indice),
   );
 }
 
-export type SessaoEntregueComPlano = {
-  status: string;
-  dataEntregue: Date | null;
-  plano: {
-    valorTotal: number;
-    numeroSessoes: number;
-  };
+export type ItemComProdutoTributavel = {
+  produto: { perfilTributario: { aliquota: number } };
 };
 
-export type SessaoComPlano = SessaoEntregueComPlano & {
-  plano: {
-    valorTotal: number;
-    numeroSessoes: number;
-    produto: ProdutoParaCusto;
-  };
+/**
+ * Cálculo de imposto conservador: quando um Plano mistura produtos de
+ * perfis tributários diferentes, usa a MAIOR alíquota entre todos os itens
+ * do plano para o imposto de TODAS as sessões dele, em vez de cada item usar
+ * a alíquota do seu próprio produto — evita subestimar o custo tributário.
+ */
+export function calcularAliquotaMaximaPlano(plano: { itens: ItemComProdutoTributavel[] }) {
+  return plano.itens.reduce((max, item) => Math.max(max, item.produto.perfilTributario.aliquota), 0);
+}
+
+export type PlanoItemParaResumo = {
+  valorItem: number;
+  quantidadeSessoes: number;
+  produto: ProdutoParaCustoComAliquota;
+  sessoes: { status: string; dataEntregue: Date | null }[];
+};
+
+export type PlanoParaResumo = {
+  itens: (PlanoItemParaResumo & ItemComProdutoTributavel)[];
 };
 
 /**
  * Receita reconhecida do mês = soma, para cada Sessao entregue com
- * dataEntregue no mês, de (Plano.valorTotal / Plano.numeroSessoes).
+ * dataEntregue no mês, de (PlanoItem.valorItem / PlanoItem.quantidadeSessoes).
  * Diferente do Caixa do mês: não importa quando o dinheiro entrou, só
- * quando a sessão foi de fato entregue — uma antecipação não acelera
- * esse reconhecimento.
+ * quando a sessão foi de fato entregue — uma antecipação não acelera esse
+ * reconhecimento.
  */
-export function calcularReceitaReconhecidaMes(sessoes: SessaoEntregueComPlano[], mes: string) {
+export function calcularReceitaReconhecidaMes(planos: PlanoParaResumo[], mes: string) {
   const { inicio, fim } = limitesDoMes(mes);
-  return sessoes
-    .filter(
-      (s) =>
-        s.status === "entregue" &&
-        s.dataEntregue !== null &&
-        s.dataEntregue.getTime() >= inicio.getTime() &&
-        s.dataEntregue.getTime() < fim.getTime(),
-    )
-    .reduce((total, s) => total + calcularValorSessao(s.plano), 0);
+  let total = 0;
+  for (const plano of planos) {
+    for (const item of plano.itens) {
+      const valorSessao = calcularValorSessaoItem(item);
+      for (const sessao of item.sessoes) {
+        if (
+          sessao.status === "entregue" &&
+          sessao.dataEntregue !== null &&
+          sessao.dataEntregue.getTime() >= inicio.getTime() &&
+          sessao.dataEntregue.getTime() < fim.getTime()
+        ) {
+          total += valorSessao;
+        }
+      }
+    }
+  }
+  return total;
 }
 
 /**
  * Custo do mês = soma, para cada Sessao entregue no mês, do custo do
- * Produto vinculado calculado proporcionalmente ao valor da sessão
- * (custoMedioMaterial + imposto + comissão sobre valorTotal/numeroSessoes).
+ * Produto vinculado ao seu item (material + comissão) mais o imposto
+ * calculado com a alíquota conservadora do plano (a maior entre os itens).
  */
-export function calcularCustoMes(sessoes: SessaoComPlano[], mes: string) {
+export function calcularCustoMes(planos: PlanoParaResumo[], mes: string) {
   const { inicio, fim } = limitesDoMes(mes);
-  return sessoes
-    .filter(
-      (s) =>
-        s.status === "entregue" &&
-        s.dataEntregue !== null &&
-        s.dataEntregue.getTime() >= inicio.getTime() &&
-        s.dataEntregue.getTime() < fim.getTime(),
-    )
-    .reduce((total, s) => {
-      const valorSessao = calcularValorSessao(s.plano);
-      return total + calcularCustoComBase(s.plano.produto, valorSessao);
-    }, 0);
+  let total = 0;
+  for (const plano of planos) {
+    const aliquotaMaxima = calcularAliquotaMaximaPlano(plano);
+    for (const item of plano.itens) {
+      const valorSessao = calcularValorSessaoItem(item);
+      for (const sessao of item.sessoes) {
+        if (
+          sessao.status === "entregue" &&
+          sessao.dataEntregue !== null &&
+          sessao.dataEntregue.getTime() >= inicio.getTime() &&
+          sessao.dataEntregue.getTime() < fim.getTime()
+        ) {
+          total += calcularCustoComAliquota(item.produto, valorSessao, aliquotaMaxima);
+        }
+      }
+    }
+  }
+  return total;
 }
 
+export type PlanoParaPendentes = {
+  itens: { sessoes: { dataPrevista: Date; status: string }[] }[];
+};
+
 /** Sessões previstas para o mês que ainda não foram decididas (nem entregues, nem perdidas). */
-export function calcularSessoesPendentesMes(
-  sessoes: { dataPrevista: Date; status: string }[],
-  mes: string,
-) {
+export function calcularSessoesPendentesMes(planos: PlanoParaPendentes[], mes: string) {
   const { inicio, fim } = limitesDoMes(mes);
-  return sessoes.filter(
-    (s) =>
-      sessaoEhAcionavel(s.status) &&
-      s.dataPrevista.getTime() >= inicio.getTime() &&
-      s.dataPrevista.getTime() < fim.getTime(),
-  ).length;
+  let total = 0;
+  for (const plano of planos) {
+    for (const item of plano.itens) {
+      for (const sessao of item.sessoes) {
+        if (
+          sessaoEhAcionavel(sessao.status) &&
+          sessao.dataPrevista.getTime() >= inicio.getTime() &&
+          sessao.dataPrevista.getTime() < fim.getTime()
+        ) {
+          total++;
+        }
+      }
+    }
+  }
+  return total;
 }
 
 export type SessaoAgrupavel = { dataPrevista: Date };

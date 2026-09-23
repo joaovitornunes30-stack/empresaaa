@@ -1,45 +1,55 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { formatarMoeda, mesAtual } from "@/lib/financeiro";
-import { calcularCustoMes, calcularReceitaReconhecidaMes, type SessaoComPlano } from "@/lib/planos";
+import { calcularCustoMes, calcularReceitaReconhecidaMes, type PlanoParaResumo } from "@/lib/planos";
 import { PlanoCard } from "@/components/financeiro/plano-card";
+import { NovoPlanoButton } from "@/components/financeiro/novo-plano-button";
 
 export const dynamic = "force-dynamic";
 
 export default async function PlanosPage() {
   const mes = mesAtual();
 
-  const planos = await prisma.plano.findMany({
-    orderBy: { dataVenda: "desc" },
-    include: {
-      cliente: { select: { nome: true } },
-      produto: {
-        select: {
-          nome: true,
-          custoMedioMaterial: true,
-          comissaoTipo: true,
-          comissaoValor: true,
-          perfilTributario: { select: { aliquota: true } },
+  const [planos, produtos, clientes, modelos] = await Promise.all([
+    prisma.plano.findMany({
+      orderBy: { dataVenda: "desc" },
+      include: {
+        cliente: { select: { nome: true } },
+        itens: {
+          include: {
+            produto: {
+              select: {
+                nome: true,
+                custoMedioMaterial: true,
+                comissaoTipo: true,
+                comissaoValor: true,
+                perfilTributario: { select: { aliquota: true } },
+              },
+            },
+            sessoes: { orderBy: { numero: "asc" } },
+          },
         },
       },
-      sessoes: { orderBy: { numero: "asc" } },
-    },
-  });
+    }),
+    prisma.produto.findMany({ select: { id: true, nome: true }, orderBy: { nome: "asc" } }),
+    prisma.cliente.findMany({ select: { id: true, nome: true }, orderBy: { nome: "asc" } }),
+    prisma.planoModelo.findMany({
+      orderBy: { nome: "asc" },
+      include: { itens: { select: { produtoId: true, quantidadeSessoes: true, valorItem: true, intervaloDias: true } } },
+    }),
+  ]);
 
-  const sessoesComPlano: SessaoComPlano[] = planos.flatMap((plano) =>
-    plano.sessoes.map((sessao) => ({
-      status: sessao.status,
-      dataEntregue: sessao.dataEntregue,
-      plano: {
-        valorTotal: plano.valorTotal,
-        numeroSessoes: plano.numeroSessoes,
-        produto: plano.produto,
-      },
+  const planosParaResumo: PlanoParaResumo[] = planos.map((plano) => ({
+    itens: plano.itens.map((item) => ({
+      valorItem: item.valorItem,
+      quantidadeSessoes: item.quantidadeSessoes,
+      produto: item.produto,
+      sessoes: item.sessoes,
     })),
-  );
+  }));
 
-  const receitaReconhecidaMes = calcularReceitaReconhecidaMes(sessoesComPlano, mes);
-  const custoMes = calcularCustoMes(sessoesComPlano, mes);
+  const receitaReconhecidaMes = calcularReceitaReconhecidaMes(planosParaResumo, mes);
+  const custoMes = calcularCustoMes(planosParaResumo, mes);
 
   return (
     <main className="mx-auto max-w-6xl px-6 py-10 sm:px-10">
@@ -50,11 +60,22 @@ export default async function PlanosPage() {
         &larr; Voltar para Financeiro
       </Link>
 
-      <header className="mb-8">
-        <h1 className="font-display text-2xl font-bold text-foreground">Planos</h1>
-        <p className="mt-1 text-sm text-foreground/60">
-          Pacotes de sessões vendidos e o acompanhamento da entrega mês a mês.
-        </p>
+      <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className="font-display text-2xl font-bold text-foreground">Planos</h1>
+          <p className="mt-1 text-sm text-foreground/60">
+            Pacotes de sessões vendidos e o acompanhamento da entrega mês a mês.
+          </p>
+        </div>
+        <div className="flex gap-3">
+          <Link
+            href="/financeiro/planos/modelos"
+            className="rounded-xl border border-border bg-surface px-4 py-2.5 text-sm font-medium text-foreground/70 hover:border-primary hover:text-primary-dark"
+          >
+            Modelos de Plano
+          </Link>
+          <NovoPlanoButton produtos={produtos} modelos={modelos} clientes={clientes} />
+        </div>
       </header>
 
       <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -78,7 +99,8 @@ export default async function PlanosPage() {
             {formatarMoeda(custoMes)}
           </p>
           <p className="mt-1 text-xs text-foreground/50">
-            Material, imposto e comissão das sessões entregues neste mês.
+            Material, imposto (alíquota conservadora do plano) e comissão
+            das sessões entregues neste mês.
           </p>
         </div>
       </div>
@@ -86,8 +108,7 @@ export default async function PlanosPage() {
       {planos.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border bg-surface p-10 text-center">
           <p className="text-sm text-foreground/60">
-            Nenhum plano cadastrado ainda. Crie uma venda com múltiplas
-            sessões para começar.
+            Nenhum plano cadastrado ainda. Clique em &quot;Novo Plano&quot; para começar.
           </p>
         </div>
       ) : (

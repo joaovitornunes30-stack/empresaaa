@@ -26,7 +26,7 @@ export function Modal({ title, onClose, children }: ModalProps) {
         onClick={onClose}
         className="absolute inset-0 bg-foreground/40"
       />
-      <div className="relative z-10 w-full max-w-lg rounded-2xl border border-border bg-surface p-6 shadow-xl">
+      <div className="relative z-10 max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-border bg-surface p-6 shadow-xl">
         <div className="mb-5 flex items-center justify-between">
           <h2 className="font-display text-lg font-semibold text-foreground">
             {title}

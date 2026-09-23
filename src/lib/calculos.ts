@@ -24,19 +24,25 @@ export function calcularComissao(produto: ProdutoComPerfil) {
     : (precoTotal * produto.comissaoValor) / 100;
 }
 
-export type ProdutoParaCusto = Pick<
+export type ProdutoParaCustoComAliquota = Pick<
   ProdutoComPerfil,
-  "custoMedioMaterial" | "comissaoTipo" | "comissaoValor" | "perfilTributario"
+  "custoMedioMaterial" | "comissaoTipo" | "comissaoValor"
 >;
 
 /**
  * Custo total (material + imposto + comissão) para um valor de venda
- * qualquer — não necessariamente o preço de catálogo do produto. Usado
- * para o custo por sessão de um Plano, onde a base é o valor da sessão
- * (valorTotal do plano / numeroSessoes), não o precoVenda do produto.
+ * qualquer — não necessariamente o preço de catálogo do produto — usando
+ * uma alíquota informada explicitamente em vez da do perfil tributário do
+ * próprio produto. Usado para o custo por sessão de um item de Plano, onde
+ * a base é o valor da sessão (valorItem do item / quantidadeSessoes) e a
+ * alíquota é a maior entre todos os itens do plano (regra conservadora).
  */
-export function calcularCustoComBase(produto: ProdutoParaCusto, valorBase: number) {
-  const impostos = (valorBase * produto.perfilTributario.aliquota) / 100;
+export function calcularCustoComAliquota(
+  produto: ProdutoParaCustoComAliquota,
+  valorBase: number,
+  aliquota: number,
+) {
+  const impostos = (valorBase * aliquota) / 100;
   const comissao =
     produto.comissaoTipo === "fixo"
       ? produto.comissaoValor

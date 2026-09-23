@@ -35,7 +35,8 @@ model Produto {
   perfilTributario   PerfilTributario   @relation(fields: [perfilTributarioId], references: [id])
   entradasSaida      EntradaSaida[]
   movimentosEstoque  EstoqueMovimento[]
-  planos             Plano[]
+  planoItens         PlanoItem[]
+  planoModeloItens   PlanoModeloItem[]
   createdAt          DateTime           @default(now())
 }
 
@@ -92,26 +93,60 @@ model Cliente {
   createdAt     DateTime       @default(now())
 }
 
+// Molde reutilizável de plano: um nome e uma lista de itens (produto +
+// quantidade de sessões + valor + intervalo) que pré-preenche a criação de
+// um Plano de verdade, sem gerar nenhuma Sessao por si só.
+model PlanoModelo {
+  id        String            @id @default(cuid())
+  nome      String
+  itens     PlanoModeloItem[]
+  createdAt DateTime          @default(now())
+}
+
+model PlanoModeloItem {
+  id                String      @id @default(cuid())
+  planoModeloId     String
+  planoModelo       PlanoModelo @relation(fields: [planoModeloId], references: [id], onDelete: Cascade)
+  produtoId         String
+  produto           Produto     @relation(fields: [produtoId], references: [id])
+  quantidadeSessoes Int
+  valorItem         Float
+  intervaloDias     Int
+}
+
 model Plano {
-  id            String    @id @default(cuid())
-  clienteId     String?
-  cliente       Cliente?  @relation(fields: [clienteId], references: [id])
-  produtoId     String
-  produto       Produto   @relation(fields: [produtoId], references: [id])
-  valorTotal    Float
-  numeroSessoes Int
-  // ex: 7 (semanal), 14 (quinzenal), 30 (mensal), 60 — espaçamento padrão
-  // sugerido entre sessões, em dias.
-  intervaloDias Int
-  dataVenda     DateTime
-  createdAt     DateTime  @default(now())
-  sessoes       Sessao[]
+  id         String      @id @default(cuid())
+  clienteId  String?
+  cliente    Cliente?    @relation(fields: [clienteId], references: [id])
+  // Nome dado pelo usuário, ex: "Full 6 Meses - Maria".
+  nome       String
+  // Soma automática dos valorItem dos itens no momento da criação.
+  valorTotal Float
+  dataVenda  DateTime
+  createdAt  DateTime    @default(now())
+  itens      PlanoItem[]
+}
+
+model PlanoItem {
+  id                String   @id @default(cuid())
+  planoId           String
+  plano             Plano    @relation(fields: [planoId], references: [id], onDelete: Cascade)
+  produtoId         String
+  produto           Produto  @relation(fields: [produtoId], references: [id])
+  quantidadeSessoes Int
+  // Valor cobrado por este item, digitado pelo usuário — não é o preço de
+  // catálogo do produto.
+  valorItem         Float
+  // ex: 7 (semanal), 14 (quinzenal), 30 (mensal), 60 — espaçamento entre
+  // as sessões deste item, em dias.
+  intervaloDias     Int
+  sessoes           Sessao[]
 }
 
 model Sessao {
   id           String    @id @default(cuid())
-  planoId      String
-  plano        Plano     @relation(fields: [planoId], references: [id])
+  planoItemId  String
+  planoItem    PlanoItem @relation(fields: [planoItemId], references: [id], onDelete: Cascade)
   numero       Int // 1, 2, 3, 4...
   dataPrevista DateTime
   // "pendente", "entregue", "perdida" ou "postergada"

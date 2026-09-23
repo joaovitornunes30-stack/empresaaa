@@ -43,8 +43,7 @@ export default async function AnalisePage() {
     movimentosEstoque,
     metaDoMes,
     entradasSaidasUltimos6Meses,
-    sessoesComPlanoResumo,
-    sessoesPendentesDoMes,
+    planosParaResumo,
   ] = await Promise.all([
     prisma.entradaSaida.findMany({
       where: { data: { gte: inicio, lt: fim } },
@@ -73,14 +72,25 @@ export default async function AnalisePage() {
       where: { data: { gte: inicioJanela6Meses, lt: fim } },
       select: { tipo: true, valor: true, data: true },
     }),
-    prisma.sessao.findMany({
+    prisma.plano.findMany({
       select: {
-        status: true,
-        dataEntregue: true,
-        plano: { select: { valorTotal: true, numeroSessoes: true } },
+        itens: {
+          select: {
+            valorItem: true,
+            quantidadeSessoes: true,
+            produto: {
+              select: {
+                custoMedioMaterial: true,
+                comissaoTipo: true,
+                comissaoValor: true,
+                perfilTributario: { select: { aliquota: true } },
+              },
+            },
+            sessoes: { select: { status: true, dataEntregue: true, dataPrevista: true } },
+          },
+        },
       },
     }),
-    prisma.sessao.findMany({ select: { dataPrevista: true, status: true } }),
   ]);
 
   const faturamentoMes = calcularFaturamentoMes(entradasSaidasDoMes);
@@ -90,8 +100,8 @@ export default async function AnalisePage() {
   const totaisPorPrazo = agruparDividasPorPrazo(dividas);
   const composicao = calcularComposicaoFaturamento(entradasSaidasDoMes, produtos);
   const comparativo = calcularComparativoMensal(entradasSaidasUltimos6Meses, meses6);
-  const receitaReconhecidaMes = calcularReceitaReconhecidaMes(sessoesComPlanoResumo, mes);
-  const sessoesPendentesMes = calcularSessoesPendentesMes(sessoesPendentesDoMes, mes);
+  const receitaReconhecidaMes = calcularReceitaReconhecidaMes(planosParaResumo, mes);
+  const sessoesPendentesMes = calcularSessoesPendentesMes(planosParaResumo, mes);
 
   const estoquePorProduto: EstoqueProduto[] = produtos.map((produto) => {
     const movimentosDoProduto = movimentosEstoque.filter(
