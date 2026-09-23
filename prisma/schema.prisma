@@ -65,6 +65,12 @@ model Parcela {
   status         String // "pendente" ou "pago"
 }
 
+model MetaLucroMensal {
+  id    String @id @default(cuid())
+  mes   String @unique // "YYYY-MM"
+  valor Float
+}
+
 model Divida {
   id             String         @id @default(cuid())
   valor          Float

@@ -45,8 +45,8 @@ export async function criarEntradaSaida(
     categoria: formData.get("categoria"),
     valor: formData.get("valor"),
     data: formData.get("data"),
-    descricao: formData.get("descricao"),
-    nomePrestador: formData.get("nomePrestador"),
+    descricao: formData.get("descricao") || undefined,
+    nomePrestador: formData.get("nomePrestador") || undefined,
     parcelado: formData.get("parcelado") === "on",
     numeroParcelas: formData.get("numeroParcelas") || undefined,
   });
@@ -265,6 +265,36 @@ export async function ativarPagamentoDivida(
     divida.descricao ?? undefined,
     hoje,
   );
+
+  revalidatePath("/financeiro");
+  return { error: null };
+}
+
+const metaLucroSchema = z.object({
+  mes: z.string().trim().regex(/^\d{4}-\d{2}$/, "Mês inválido."),
+  valor: z.coerce.number().positive("Valor deve ser maior que zero."),
+});
+
+export async function definirMetaLucro(
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const parsed = metaLucroSchema.safeParse({
+    mes: formData.get("mes"),
+    valor: formData.get("valor"),
+  });
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
+  }
+
+  const { mes, valor } = parsed.data;
+
+  await prisma.metaLucroMensal.upsert({
+    where: { mes },
+    create: { mes, valor },
+    update: { valor },
+  });
 
   revalidatePath("/financeiro");
   return { error: null };

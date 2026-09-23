@@ -21,23 +21,29 @@ export default async function FinanceiroPage(props: PageProps<"/financeiro">) {
   const mes = typeof mesParam === "string" && mesParam ? mesParam : mesAtual();
   const { inicio, fim } = limitesDoMes(mes);
 
-  const [dividas, todasEntradasSaidas, parcelasPendentes, entradasSaidasDoMes] =
-    await Promise.all([
-      prisma.divida.findMany({
-        orderBy: { createdAt: "desc" },
-        include: { entradasSaida: { include: { parcelas: true } } },
-      }),
-      prisma.entradaSaida.findMany({ select: { tipo: true, valor: true } }),
-      prisma.parcela.findMany({
-        where: { status: "pendente" },
-        include: { entradaSaida: { select: { tipo: true } } },
-      }),
-      prisma.entradaSaida.findMany({
-        where: { data: { gte: inicio, lt: fim } },
-        include: { parcelas: true },
-        orderBy: { data: "desc" },
-      }),
-    ]);
+  const [
+    dividas,
+    todasEntradasSaidas,
+    parcelasPendentes,
+    entradasSaidasDoMes,
+    metaLucro,
+  ] = await Promise.all([
+    prisma.divida.findMany({
+      orderBy: { createdAt: "desc" },
+      include: { entradasSaida: { include: { parcelas: true } } },
+    }),
+    prisma.entradaSaida.findMany({ select: { tipo: true, valor: true } }),
+    prisma.parcela.findMany({
+      where: { status: "pendente" },
+      include: { entradaSaida: { select: { tipo: true } } },
+    }),
+    prisma.entradaSaida.findMany({
+      where: { data: { gte: inicio, lt: fim } },
+      include: { parcelas: true },
+      orderBy: { data: "desc" },
+    }),
+    prisma.metaLucroMensal.findUnique({ where: { mes } }),
+  ]);
 
   const totaisPorPrazo = agruparDividasPorPrazo(dividas);
   const saldoAtual = calcularSaldoAtual(todasEntradasSaidas);
@@ -62,7 +68,11 @@ export default async function FinanceiroPage(props: PageProps<"/financeiro">) {
       </header>
 
       <div className="mb-8">
-        <EntradasSaidasTable itens={entradasSaidasDoMes} mes={mes} />
+        <EntradasSaidasTable
+          itens={entradasSaidasDoMes}
+          mes={mes}
+          meta={metaLucro?.valor ?? null}
+        />
       </div>
 
       <div className="mb-8">

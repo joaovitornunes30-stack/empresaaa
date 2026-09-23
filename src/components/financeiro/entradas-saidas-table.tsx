@@ -1,5 +1,7 @@
 import { marcarParcelaPaga } from "@/app/financeiro/actions";
 import { formatarData, formatarMoeda, parcelaVencida } from "@/lib/financeiro";
+import { MetaLucroTermometro } from "@/components/financeiro/meta-lucro-termometro";
+import { DefinirMetaButton } from "@/components/financeiro/definir-meta-button";
 
 type Parcela = {
   id: string;
@@ -22,10 +24,16 @@ type EntradaSaida = {
 export function EntradasSaidasTable({
   itens,
   mes,
+  meta,
 }: {
   itens: EntradaSaida[];
   mes: string;
+  meta: number | null;
 }) {
+  const totalMes = itens.reduce((total, item) => {
+    return item.tipo === "entrada" ? total + item.valor : total - item.valor;
+  }, 0);
+
   return (
     <div className="rounded-2xl border border-border bg-surface">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4">
@@ -149,6 +157,30 @@ export function EntradasSaidasTable({
           </table>
         </div>
       )}
+
+      <div className="flex flex-wrap items-center justify-between gap-4 border-t border-border px-5 py-4">
+        <div>{meta === null && <DefinirMetaButton mes={mes} metaAtual={null} />}</div>
+        <div className="flex items-center gap-4">
+          {meta !== null && (
+            <MetaLucroTermometro totalMes={totalMes} meta={meta} />
+          )}
+          <div className="text-right">
+            <p className="text-xs font-medium uppercase tracking-wide text-foreground/50">
+              Total do mês
+            </p>
+            <p
+              className={`font-display text-lg font-bold ${
+                totalMes < 0 ? "text-warn" : "text-foreground"
+              }`}
+            >
+              {formatarMoeda(totalMes)}
+            </p>
+            {meta !== null && (
+              <DefinirMetaButton mes={mes} metaAtual={meta} />
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
