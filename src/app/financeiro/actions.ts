@@ -25,6 +25,11 @@ const entradaSaidaSchema = z
       .trim()
       .optional()
       .transform((value) => (value ? value : undefined)),
+    produtoId: z
+      .string()
+      .trim()
+      .optional()
+      .transform((value) => (value ? value : undefined)),
     parcelado: z.coerce.boolean().optional(),
     numeroParcelas: z.coerce.number().int().optional(),
   })
@@ -47,6 +52,7 @@ export async function criarEntradaSaida(
     data: formData.get("data"),
     descricao: formData.get("descricao") || undefined,
     nomePrestador: formData.get("nomePrestador") || undefined,
+    produtoId: formData.get("produtoId") || undefined,
     parcelado: formData.get("parcelado") === "on",
     numeroParcelas: formData.get("numeroParcelas") || undefined,
   });
@@ -62,6 +68,7 @@ export async function criarEntradaSaida(
     data,
     descricao,
     nomePrestador,
+    produtoId,
     parcelado,
     numeroParcelas,
   } = parsed.data;
@@ -74,6 +81,7 @@ export async function criarEntradaSaida(
       data,
       descricao,
       nomePrestador: categoria === "Prestador de Serviço" ? nomePrestador : undefined,
+      produtoId: tipo === "entrada" ? produtoId : undefined,
       ...(parcelado && numeroParcelas
         ? {
             parcelas: {

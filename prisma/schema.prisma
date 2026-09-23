@@ -20,7 +20,7 @@ enum ComissaoTipo {
 }
 
 model Produto {
-  id                 String           @id @default(cuid())
+  id                 String             @id @default(cuid())
   nome               String
   precoVenda         Float
   custoMedioMaterial Float
@@ -30,10 +30,12 @@ model Produto {
   // Número mínimo de produtos/procedimentos costumeiramente executados em
   // paralelo no mesmo espaço/horário. Usado futuramente para ratear custo de
   // estrutura por hora; hoje é apenas armazenado, sem entrar em nenhum cálculo.
-  divisorCustoEspaco Int              @default(1)
+  divisorCustoEspaco Int                @default(1)
   perfilTributarioId String
-  perfilTributario   PerfilTributario @relation(fields: [perfilTributarioId], references: [id])
-  createdAt          DateTime         @default(now())
+  perfilTributario   PerfilTributario   @relation(fields: [perfilTributarioId], references: [id])
+  entradasSaida      EntradaSaida[]
+  movimentosEstoque  EstoqueMovimento[]
+  createdAt          DateTime           @default(now())
 }
 
 model EntradaSaida {
@@ -52,6 +54,10 @@ model EntradaSaida {
   // mês), nunca o valor total da dívida.
   dividaId      String?
   divida        Divida?   @relation(fields: [dividaId], references: [id])
+  // Referência opcional ao produto vendido, usada na Composição do
+  // Faturamento (aba Análise). Só faz sentido em entradas de venda.
+  produtoId     String?
+  produto       Produto?  @relation(fields: [produtoId], references: [id])
   createdAt     DateTime  @default(now())
 }
 
@@ -69,6 +75,22 @@ model MetaLucroMensal {
   id    String @id @default(cuid())
   mes   String @unique // "YYYY-MM"
   valor Float
+}
+
+model MetaDoMes {
+  id            String @id @default(cuid())
+  mesReferencia String @unique // "YYYY-MM"
+  valorMeta     Float
+}
+
+model EstoqueMovimento {
+  id         String   @id @default(cuid())
+  produtoId  String
+  produto    Produto  @relation(fields: [produtoId], references: [id])
+  tipo       String // "entrada" ou "saida"
+  quantidade Int
+  data       DateTime
+  descricao  String? // ex: "avaria", "compra", "uso em atendimento"
 }
 
 model Divida {

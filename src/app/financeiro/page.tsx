@@ -27,6 +27,7 @@ export default async function FinanceiroPage(props: PageProps<"/financeiro">) {
     parcelasPendentes,
     entradasSaidasDoMes,
     metaLucro,
+    produtos,
   ] = await Promise.all([
     prisma.divida.findMany({
       orderBy: { createdAt: "desc" },
@@ -43,6 +44,7 @@ export default async function FinanceiroPage(props: PageProps<"/financeiro">) {
       orderBy: { data: "desc" },
     }),
     prisma.metaLucroMensal.findUnique({ where: { mes } }),
+    prisma.produto.findMany({ select: { id: true, nome: true }, orderBy: { nome: "asc" } }),
   ]);
 
   const totaisPorPrazo = agruparDividasPorPrazo(dividas);
@@ -63,7 +65,7 @@ export default async function FinanceiroPage(props: PageProps<"/financeiro">) {
         </div>
         <div className="flex items-center gap-3">
           <DividasManager dividas={dividas} />
-          <NovaEntradaSaidaButton />
+          <NovaEntradaSaidaButton produtos={produtos} />
         </div>
       </header>
 

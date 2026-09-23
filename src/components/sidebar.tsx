@@ -10,8 +10,8 @@ type NavItem = {
 };
 
 const NAV_ITEMS: NavItem[] = [
+  { label: "Análise", href: "/analise", enabled: true },
   { label: "Produtos", href: "/produtos", enabled: true },
-  { label: "Análise", href: "/analise", enabled: false },
   { label: "Clientes", href: "/clientes", enabled: false },
   { label: "Financeiro", href: "/financeiro", enabled: true },
   { label: "Retiradas", href: "/retiradas", enabled: false },

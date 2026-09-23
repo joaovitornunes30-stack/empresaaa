@@ -22,7 +22,11 @@ const CATEGORIAS_POR_TIPO: Record<"entrada" | "saida", string[]> = {
   ],
 };
 
-export function NovaEntradaSaidaButton() {
+export function NovaEntradaSaidaButton({
+  produtos,
+}: {
+  produtos: { id: string; nome: string }[];
+}) {
   const [open, setOpen] = useState(false);
   const [parcelado, setParcelado] = useState(false);
   const [tipo, setTipo] = useState<"entrada" | "saida">("entrada");
@@ -104,6 +108,22 @@ export function NovaEntradaSaidaButton() {
                 ))}
               </datalist>
             </div>
+
+            {tipo === "entrada" && produtos.length > 0 && (
+              <div>
+                <label htmlFor="produtoId" className={labelClass}>
+                  Produto (opcional)
+                </label>
+                <select id="produtoId" name="produtoId" className={inputClass} defaultValue="">
+                  <option value="">Nenhum</option>
+                  {produtos.map((produto) => (
+                    <option key={produto.id} value={produto.id}>
+                      {produto.nome}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             {categoria === "Prestador de Serviço" && (
               <div>
