@@ -13,6 +13,7 @@
 
   --color-accent: #f97316;
   --color-accent-foreground: #ffffff;
+  --color-accent-bg: #fff1e5;
 
   --color-good: #15803d;
   --color-good-bg: #ecfdf3;
@@ -30,6 +31,7 @@
   --color-primary-foreground: var(--color-primary-foreground);
   --color-accent: var(--color-accent);
   --color-accent-foreground: var(--color-accent-foreground);
+  --color-accent-bg: var(--color-accent-bg);
   --color-good: var(--color-good);
   --color-good-bg: var(--color-good-bg);
   --color-warn: var(--color-warn);

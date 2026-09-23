@@ -58,7 +58,29 @@ model EntradaSaida {
   // Faturamento (aba Análise). Só faz sentido em entradas de venda.
   produtoId     String?
   produto       Produto?  @relation(fields: [produtoId], references: [id])
+  // Cliente vinculado a uma venda (aba Clientes).
+  clienteId     String?
+  cliente       Cliente?  @relation(fields: [clienteId], references: [id])
+  // Quando marcar o próximo retorno esperado desse cliente.
+  dataProximoRetorno DateTime?
+  // Nome de quem fechou a venda — texto livre por enquanto, sem tabela de
+  // funcionários ainda; prepara dado para futura aba Comercial.
+  fechadoPor    String?
   createdAt     DateTime  @default(now())
+}
+
+model Cliente {
+  id            String         @id @default(cuid())
+  nome          String
+  contato       String?
+  observacoes   String?
+  // ex: "Instagram", "Indicação", "Google", "Walk-in" — texto livre com sugestões
+  origem        String?
+  indicadoPorId String?
+  indicadoPor   Cliente?       @relation("Indicacoes", fields: [indicadoPorId], references: [id])
+  indicados     Cliente[]      @relation("Indicacoes")
+  entradasSaida EntradaSaida[]
+  createdAt     DateTime       @default(now())
 }
 
 model Parcela {

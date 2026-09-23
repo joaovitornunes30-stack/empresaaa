@@ -35,6 +35,19 @@ const entradaSaidaSchema = z
       .int("Quantidade vendida deve ser um número inteiro.")
       .positive("Quantidade vendida deve ser maior que zero.")
       .optional(),
+    clienteId: z
+      .string()
+      .trim()
+      .optional()
+      .transform((value) => (value ? value : undefined)),
+    fechadoPor: z
+      .string()
+      .trim()
+      .optional()
+      .transform((value) => (value ? value : undefined)),
+    dataProximoRetorno: z.coerce
+      .date({ error: "Informe uma data de retorno válida." })
+      .optional(),
     parcelado: z.coerce.boolean().optional(),
     numeroParcelas: z.coerce.number().int().optional(),
   })
@@ -59,6 +72,9 @@ export async function criarEntradaSaida(
     nomePrestador: formData.get("nomePrestador") || undefined,
     produtoId: formData.get("produtoId") || undefined,
     quantidadeVendida: formData.get("quantidadeVendida") || undefined,
+    clienteId: formData.get("clienteId") || undefined,
+    fechadoPor: formData.get("fechadoPor") || undefined,
+    dataProximoRetorno: formData.get("dataProximoRetorno") || undefined,
     parcelado: formData.get("parcelado") === "on",
     numeroParcelas: formData.get("numeroParcelas") || undefined,
   });
@@ -76,6 +92,9 @@ export async function criarEntradaSaida(
     nomePrestador,
     produtoId,
     quantidadeVendida,
+    clienteId,
+    fechadoPor,
+    dataProximoRetorno,
     parcelado,
     numeroParcelas,
   } = parsed.data;
@@ -92,6 +111,9 @@ export async function criarEntradaSaida(
         descricao,
         nomePrestador: categoria === "Prestador de Serviço" ? nomePrestador : undefined,
         produtoId: produtoVendidoId,
+        clienteId: tipo === "entrada" ? clienteId : undefined,
+        fechadoPor: tipo === "entrada" ? fechadoPor : undefined,
+        dataProximoRetorno: tipo === "entrada" ? dataProximoRetorno : undefined,
         ...(parcelado && numeroParcelas
           ? {
               parcelas: {
@@ -126,6 +148,7 @@ export async function criarEntradaSaida(
 
   revalidatePath("/financeiro");
   revalidatePath("/analise");
+  revalidatePath("/clientes");
   return { error: null };
 }
 
