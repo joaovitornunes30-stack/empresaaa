@@ -19,7 +19,14 @@ export type DividaComParcelas = {
   valor: number;
   dataVencimento: Date;
   status: string;
-  entradasSaida: { parcelas: { valor: number; dataVencimento: Date; status: string }[] }[];
+  entradasSaida: {
+    parcelas: {
+      numeroParcela: number;
+      valor: number;
+      dataVencimento: Date;
+      status: string;
+    }[];
+  }[];
 };
 
 /**
@@ -67,6 +74,14 @@ export function contarParcelasPagas(divida: DividaComParcelas) {
     pagas: parcelas.filter((parcela) => parcela.status === "pago").length,
     total: parcelas.length,
   };
+}
+
+/** Todas as parcelas de uma dívida, ordenadas por data de vencimento. */
+export function listarParcelasDaDivida(divida: DividaComParcelas) {
+  return divida.entradasSaida
+    .flatMap((es) => es.parcelas)
+    .slice()
+    .sort((a, b) => a.dataVencimento.getTime() - b.dataVencimento.getTime());
 }
 
 export function calcularSaldoAtual(
