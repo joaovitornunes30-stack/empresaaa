@@ -73,6 +73,13 @@ model Cliente {
   id            String         @id @default(cuid())
   nome          String
   contato       String?
+  // Opcional, para uso futuro em campanhas de e-mail.
+  email         String?
+  cpf           String?
+  dataNascimento           DateTime?
+  // Preenchida manualmente ou auto-calculada como a data da primeira
+  // Entrada vinculada a esse cliente.
+  dataPrimeiroProcedimento DateTime?
   observacoes   String?
   // ex: "Instagram", "Indicação", "Google", "Walk-in" — texto livre com sugestões
   origem        String?

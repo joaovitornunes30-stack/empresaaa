@@ -19,6 +19,8 @@
   --color-good-bg: #ecfdf3;
   --color-warn: #c2410c;
   --color-warn-bg: #fff2e8;
+  --color-critical: #dc2626;
+  --color-critical-bg: #fef2f2;
 }
 
 @theme inline {
@@ -36,6 +38,8 @@
   --color-good-bg: var(--color-good-bg);
   --color-warn: var(--color-warn);
   --color-warn-bg: var(--color-warn-bg);
+  --color-critical: var(--color-critical);
+  --color-critical-bg: var(--color-critical-bg);
   --font-display: var(--font-sora);
   --font-sans: var(--font-inter);
 }

@@ -13,9 +13,13 @@ const labelClass = "mb-1.5 block text-sm font-medium text-foreground/80";
 export function NovaVendaClienteButton({
   clienteId,
   produtos,
+  compact,
+  nomeCliente,
 }: {
   clienteId: string;
   produtos: { id: string; nome: string }[];
+  compact?: boolean;
+  nomeCliente?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [produtoId, setProdutoId] = useState("");
@@ -42,13 +46,18 @@ export function NovaVendaClienteButton({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary-dark"
+        title={compact ? "Nova venda" : undefined}
+        className={
+          compact
+            ? "flex h-8 w-8 items-center justify-center rounded-full bg-primary text-base font-semibold text-primary-foreground transition-colors hover:bg-primary-dark"
+            : "rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary-dark"
+        }
       >
-        + Nova Venda
+        {compact ? "+" : "+ Nova Venda"}
       </button>
 
       {open && (
-        <Modal title="Nova Venda" onClose={handleClose}>
+        <Modal title={nomeCliente ? `Nova Venda — ${nomeCliente}` : "Nova Venda"} onClose={handleClose}>
           <form
             action={(formData) => {
               setSubmittedOnce(true);

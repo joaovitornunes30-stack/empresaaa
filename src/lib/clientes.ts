@@ -72,6 +72,42 @@ export function identificarClientesDistantes(
     .sort((a, b) => b.dias - a.dias);
 }
 
+export type StatusCliente = "verde" | "laranja" | "vermelho" | null;
+
+/**
+ * Status calculado a partir dos dias desde a referência de retorno (a
+ * mesma usada em "Pacientes Distantes"): menos de 30 dias = verde, entre
+ * 30 e 60 = laranja, mais de 60 = vermelho. Sem nenhuma venda ainda = sem
+ * status (null). Um retorno futuro agendado conta como dias negativos,
+ * então cai em verde.
+ */
+export function calcularStatusCliente(
+  vendas: VendaResumo[],
+  hoje: Date = new Date(),
+): { cor: StatusCliente; dias: number | null } {
+  const maisRecente = obterVendaMaisRecente(vendas);
+  if (!maisRecente) return { cor: null, dias: null };
+
+  const referencia = maisRecente.dataProximoRetorno ?? maisRecente.data;
+  const dias = diasDesde(referencia, hoje);
+
+  if (dias < 30) return { cor: "verde", dias };
+  if (dias <= DIAS_LIMITE_DISTANTE) return { cor: "laranja", dias };
+  return { cor: "vermelho", dias };
+}
+
+/**
+ * A dataProximoRetorno da venda mais recente, apenas se ainda estiver no
+ * futuro (retorno já agendado e ainda não vencido). Caso contrário — sem
+ * retorno marcado, ou um retorno que já passou sem uma nova venda —
+ * retorna null (sem plano ativo).
+ */
+export function obterProximoRetornoAtivo(vendas: VendaResumo[], hoje: Date = new Date()): Date | null {
+  const maisRecente = obterVendaMaisRecente(vendas);
+  if (!maisRecente?.dataProximoRetorno) return null;
+  return diasDesde(maisRecente.dataProximoRetorno, hoje) < 0 ? maisRecente.dataProximoRetorno : null;
+}
+
 export type ClienteComContagem = { id: string; nome: string; totalIndicados: number };
 
 /** Ranking de quem mais indicou outros clientes, só os que indicaram >0. */

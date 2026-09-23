@@ -1,8 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import {
+  calcularStatusCliente,
   calcularUltimaVenda,
   calcularValorTotalGasto,
   identificarClientesDistantes,
+  obterProximoRetornoAtivo,
   rankearIndicacoes,
 } from "@/lib/clientes";
 import { ClientesTable } from "@/components/clientes/clientes-table";
@@ -13,13 +15,16 @@ import { RankingIndicacoes } from "@/components/clientes/ranking-indicacoes";
 export const dynamic = "force-dynamic";
 
 export default async function ClientesPage() {
-  const clientes = await prisma.cliente.findMany({
-    orderBy: { nome: "asc" },
-    include: {
-      entradasSaida: { select: { valor: true, data: true, dataProximoRetorno: true } },
-      _count: { select: { indicados: true } },
-    },
-  });
+  const [clientes, produtos] = await Promise.all([
+    prisma.cliente.findMany({
+      orderBy: { nome: "asc" },
+      include: {
+        entradasSaida: { select: { valor: true, data: true, dataProximoRetorno: true } },
+        _count: { select: { indicados: true } },
+      },
+    }),
+    prisma.produto.findMany({ select: { id: true, nome: true }, orderBy: { nome: "asc" } }),
+  ]);
 
   const linhasTabela = clientes.map((cliente) => ({
     id: cliente.id,
@@ -28,6 +33,8 @@ export default async function ClientesPage() {
     origem: cliente.origem,
     ultimaVenda: calcularUltimaVenda(cliente.entradasSaida),
     valorTotalGasto: calcularValorTotalGasto(cliente.entradasSaida),
+    status: calcularStatusCliente(cliente.entradasSaida),
+    proximoRetornoAtivo: obterProximoRetornoAtivo(cliente.entradasSaida),
   }));
 
   const distantes = identificarClientesDistantes(
@@ -68,16 +75,16 @@ export default async function ClientesPage() {
 
       <div className="mb-8">
         <h2 className="mb-3 font-display text-base font-semibold text-foreground">
-          Indicações
+          Todos os clientes
         </h2>
-        <RankingIndicacoes ranking={ranking} />
+        <ClientesTable clientes={linhasTabela} produtos={produtos} />
       </div>
 
       <div>
         <h2 className="mb-3 font-display text-base font-semibold text-foreground">
-          Todos os clientes
+          Indicações
         </h2>
-        <ClientesTable clientes={linhasTabela} />
+        <RankingIndicacoes ranking={ranking} />
       </div>
     </main>
   );

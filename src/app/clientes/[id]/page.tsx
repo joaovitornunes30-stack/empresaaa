@@ -2,9 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { calcularValorTotalGasto } from "@/lib/clientes";
-import { formatarMoeda } from "@/lib/financeiro";
+import { formatarData, formatarMoeda } from "@/lib/financeiro";
 import { HistoricoVendasTable } from "@/components/clientes/historico-vendas-table";
 import { NovaVendaClienteButton } from "@/components/clientes/nova-venda-cliente-button";
+import { EditarClienteButton } from "@/components/clientes/novo-cliente-button";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +14,7 @@ export default async function ClienteDetalhePage(
 ) {
   const { id } = await props.params;
 
-  const [cliente, produtos] = await Promise.all([
+  const [cliente, produtos, todosClientes] = await Promise.all([
     prisma.cliente.findUnique({
       where: { id },
       include: {
@@ -27,6 +28,7 @@ export default async function ClienteDetalhePage(
       },
     }),
     prisma.produto.findMany({ select: { id: true, nome: true }, orderBy: { nome: "asc" } }),
+    prisma.cliente.findMany({ select: { id: true, nome: true }, orderBy: { nome: "asc" } }),
   ]);
 
   if (!cliente) notFound();
@@ -44,11 +46,26 @@ export default async function ClienteDetalhePage(
 
       <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="font-display text-2xl font-bold text-foreground">{cliente.nome}</h1>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="font-display text-2xl font-bold text-foreground">{cliente.nome}</h1>
+            <EditarClienteButton cliente={cliente} clientes={todosClientes} />
+          </div>
           <p className="mt-1 text-sm text-foreground/60">
             {cliente.contato ?? "Sem contato cadastrado"}
             {cliente.origem ? ` · ${cliente.origem}` : ""}
+            {cliente.email ? ` · ${cliente.email}` : ""}
           </p>
+          {(cliente.cpf || cliente.dataNascimento || cliente.dataPrimeiroProcedimento) && (
+            <p className="mt-1 text-sm text-foreground/60">
+              {cliente.cpf ? `CPF ${cliente.cpf}` : ""}
+              {cliente.dataNascimento
+                ? `${cliente.cpf ? " · " : ""}Nascimento ${formatarData(cliente.dataNascimento)}`
+                : ""}
+              {cliente.dataPrimeiroProcedimento
+                ? `${cliente.cpf || cliente.dataNascimento ? " · " : ""}1º procedimento ${formatarData(cliente.dataPrimeiroProcedimento)}`
+                : ""}
+            </p>
+          )}
           {cliente.indicadoPor && (
             <p className="mt-1 text-sm text-foreground/60">
               Indicado por{" "}
