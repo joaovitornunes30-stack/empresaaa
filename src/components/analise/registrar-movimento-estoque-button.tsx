@@ -46,6 +46,12 @@ export function RegistrarMovimentoEstoqueButton({
 
       {open && (
         <Modal title="Movimento de Estoque" onClose={() => setOpen(false)}>
+          <p className="-mt-1 mb-1 text-xs text-foreground/50">
+            Use para compra de material (entrada) ou avaria/perda (saída).
+            Vendas não devem ser lançadas aqui — elas baixam o estoque
+            automaticamente ao registrar a entrada com produto e quantidade
+            no Financeiro.
+          </p>
           <form action={formAction} className="flex flex-col gap-4">
             <div>
               <label htmlFor="produtoId" className={labelClass}>

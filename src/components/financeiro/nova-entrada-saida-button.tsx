@@ -31,6 +31,7 @@ export function NovaEntradaSaidaButton({
   const [parcelado, setParcelado] = useState(false);
   const [tipo, setTipo] = useState<"entrada" | "saida">("entrada");
   const [categoria, setCategoria] = useState("");
+  const [produtoId, setProdutoId] = useState("");
   const [state, formAction, pending] = useActionState(
     criarEntradaSaida,
     initialState,
@@ -44,6 +45,7 @@ export function NovaEntradaSaidaButton({
       setParcelado(false);
       setTipo("entrada");
       setCategoria("");
+      setProdutoId("");
     }
   }
 
@@ -52,6 +54,7 @@ export function NovaEntradaSaidaButton({
     setParcelado(false);
     setTipo("entrada");
     setCategoria("");
+    setProdutoId("");
   }
 
   return (
@@ -80,6 +83,7 @@ export function NovaEntradaSaidaButton({
                 onChange={(event) => {
                   setTipo(event.target.value as "entrada" | "saida");
                   setCategoria("");
+                  setProdutoId("");
                 }}
               >
                 <option value="entrada">Entrada</option>
@@ -114,7 +118,13 @@ export function NovaEntradaSaidaButton({
                 <label htmlFor="produtoId" className={labelClass}>
                   Produto (opcional)
                 </label>
-                <select id="produtoId" name="produtoId" className={inputClass} defaultValue="">
+                <select
+                  id="produtoId"
+                  name="produtoId"
+                  className={inputClass}
+                  value={produtoId}
+                  onChange={(event) => setProdutoId(event.target.value)}
+                >
                   <option value="">Nenhum</option>
                   {produtos.map((produto) => (
                     <option key={produto.id} value={produto.id}>
@@ -122,6 +132,26 @@ export function NovaEntradaSaidaButton({
                     </option>
                   ))}
                 </select>
+              </div>
+            )}
+
+            {tipo === "entrada" && produtoId && (
+              <div>
+                <label htmlFor="quantidadeVendida" className={labelClass}>
+                  Quantidade vendida
+                </label>
+                <input
+                  id="quantidadeVendida"
+                  name="quantidadeVendida"
+                  type="number"
+                  step="1"
+                  min="1"
+                  className={inputClass}
+                  placeholder="Ex: 1"
+                />
+                <p className="mt-1 text-xs text-foreground/50">
+                  Baixa automaticamente do estoque desse produto.
+                </p>
               </div>
             )}
 

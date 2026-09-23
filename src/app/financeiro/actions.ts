@@ -30,6 +30,11 @@ const entradaSaidaSchema = z
       .trim()
       .optional()
       .transform((value) => (value ? value : undefined)),
+    quantidadeVendida: z.coerce
+      .number()
+      .int("Quantidade vendida deve ser um número inteiro.")
+      .positive("Quantidade vendida deve ser maior que zero.")
+      .optional(),
     parcelado: z.coerce.boolean().optional(),
     numeroParcelas: z.coerce.number().int().optional(),
   })
@@ -53,6 +58,7 @@ export async function criarEntradaSaida(
     descricao: formData.get("descricao") || undefined,
     nomePrestador: formData.get("nomePrestador") || undefined,
     produtoId: formData.get("produtoId") || undefined,
+    quantidadeVendida: formData.get("quantidadeVendida") || undefined,
     parcelado: formData.get("parcelado") === "on",
     numeroParcelas: formData.get("numeroParcelas") || undefined,
   });
@@ -69,37 +75,57 @@ export async function criarEntradaSaida(
     descricao,
     nomePrestador,
     produtoId,
+    quantidadeVendida,
     parcelado,
     numeroParcelas,
   } = parsed.data;
 
-  await prisma.entradaSaida.create({
-    data: {
-      tipo,
-      categoria,
-      valor,
-      data,
-      descricao,
-      nomePrestador: categoria === "Prestador de Serviço" ? nomePrestador : undefined,
-      produtoId: tipo === "entrada" ? produtoId : undefined,
-      ...(parcelado && numeroParcelas
-        ? {
-            parcelas: {
-              create: calcularValoresParcelas(valor, numeroParcelas).map(
-                (valorParcela, index) => ({
-                  numeroParcela: index + 1,
-                  valor: valorParcela,
-                  dataVencimento: adicionarMeses(data, index),
-                  status: "pendente",
-                }),
-              ),
-            },
-          }
-        : {}),
-    },
+  const produtoVendidoId = tipo === "entrada" ? produtoId : undefined;
+
+  await prisma.$transaction(async (tx) => {
+    await tx.entradaSaida.create({
+      data: {
+        tipo,
+        categoria,
+        valor,
+        data,
+        descricao,
+        nomePrestador: categoria === "Prestador de Serviço" ? nomePrestador : undefined,
+        produtoId: produtoVendidoId,
+        ...(parcelado && numeroParcelas
+          ? {
+              parcelas: {
+                create: calcularValoresParcelas(valor, numeroParcelas).map(
+                  (valorParcela, index) => ({
+                    numeroParcela: index + 1,
+                    valor: valorParcela,
+                    dataVencimento: adicionarMeses(data, index),
+                    status: "pendente",
+                  }),
+                ),
+              },
+            }
+          : {}),
+      },
+    });
+
+    // Uma venda com produto e quantidade informados baixa o estoque
+    // automaticamente — não deve ser lançada de novo na tela de Estoque.
+    if (produtoVendidoId && quantidadeVendida) {
+      await tx.estoqueMovimento.create({
+        data: {
+          produtoId: produtoVendidoId,
+          tipo: "saida",
+          quantidade: quantidadeVendida,
+          data,
+          descricao: "Venda",
+        },
+      });
+    }
   });
 
   revalidatePath("/financeiro");
+  revalidatePath("/analise");
   return { error: null };
 }
 
