@@ -14,7 +14,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Produtos", href: "/produtos", enabled: true },
   { label: "Clientes", href: "/clientes", enabled: true },
   { label: "Financeiro", href: "/financeiro", enabled: true },
-  { label: "Retiradas", href: "/retiradas", enabled: false },
+  { label: "Retiradas", href: "/retiradas", enabled: true },
 ];
 
 export function Sidebar() {

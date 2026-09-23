@@ -122,6 +122,14 @@ model EstoqueMovimento {
   descricao  String? // ex: "avaria", "compra", "uso em atendimento"
 }
 
+model Retirada {
+  id        String   @id @default(cuid())
+  valor     Float
+  data      DateTime
+  descricao String?
+  createdAt DateTime @default(now())
+}
+
 model Divida {
   id             String         @id @default(cuid())
   valor          Float
