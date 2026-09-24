@@ -4,18 +4,32 @@ import {
   calcularCaixaMes,
   calcularComparativoMensal,
   calcularComposicaoFaturamento,
+  calcularCustoPorProdutoDasVendasSimplesMes,
+  calcularCustoVendasSimplesMes,
+  calcularCustosFixosMes,
   calcularEstoqueAtual,
   calcularFaturamentoMes,
   calcularGastoMidia,
   calcularHistoricoEstoque,
   calcularMetaDoMes,
+  calcularParaOndeVaiDinheiro,
+  calcularParcelasDividaPagasMes,
+  calcularReceitaVendasSimplesMes,
   calcularVendasMes,
+  filtrarVendasSimplesDoMes,
   gerarResumoDoMes,
+  mesclarCustoPorProduto,
   ultimosMeses,
 } from "@/lib/analise";
-import { calcularReceitaReconhecidaMes, calcularSessoesPendentesMes } from "@/lib/planos";
+import {
+  calcularCustoMes,
+  calcularCustoPorProdutoDosPlanosMes,
+  calcularReceitaReconhecidaMes,
+  calcularSessoesPendentesMes,
+} from "@/lib/planos";
 import { MetaDoMesCard } from "@/components/analise/meta-do-mes-card";
 import { FaturamentoVsCaixa } from "@/components/analise/faturamento-vs-caixa";
+import { ParaOndeVaiDinheiro } from "@/components/analise/para-onde-vai-dinheiro";
 import { SessoesPendentesCard } from "@/components/analise/sessoes-pendentes-card";
 import { EstoqueSection, type EstoqueProduto } from "@/components/analise/estoque-section";
 import { RegistrarMovimentoEstoqueButton } from "@/components/analise/registrar-movimento-estoque-button";
@@ -38,6 +52,7 @@ export default async function AnalisePage() {
   const [
     entradasSaidasDoMes,
     parcelasPagasVendasDoMes,
+    parcelasPagasDividaDoMes,
     dividas,
     produtos,
     movimentosEstoque,
@@ -47,13 +62,36 @@ export default async function AnalisePage() {
   ] = await Promise.all([
     prisma.entradaSaida.findMany({
       where: { data: { gte: inicio, lt: fim } },
-      select: { tipo: true, categoria: true, valor: true, produtoId: true },
+      select: {
+        tipo: true,
+        categoria: true,
+        valor: true,
+        produtoId: true,
+        produto: {
+          select: {
+            id: true,
+            nome: true,
+            custoMedioMaterial: true,
+            comissaoTipo: true,
+            comissaoValor: true,
+            perfilTributario: { select: { aliquota: true } },
+          },
+        },
+      },
     }),
     prisma.parcela.findMany({
       where: {
         status: "pago",
         dataVencimento: { gte: inicio, lt: fim },
         entradaSaida: { tipo: "entrada" },
+      },
+      select: { valor: true },
+    }),
+    prisma.parcela.findMany({
+      where: {
+        status: "pago",
+        dataVencimento: { gte: inicio, lt: fim },
+        entradaSaida: { tipo: "saida", dividaId: { not: null } },
       },
       select: { valor: true },
     }),
@@ -80,6 +118,8 @@ export default async function AnalisePage() {
             quantidadeSessoes: true,
             produto: {
               select: {
+                id: true,
+                nome: true,
                 custoMedioMaterial: true,
                 comissaoTipo: true,
                 comissaoValor: true,
@@ -102,6 +142,27 @@ export default async function AnalisePage() {
   const comparativo = calcularComparativoMensal(entradasSaidasUltimos6Meses, meses6);
   const receitaReconhecidaMes = calcularReceitaReconhecidaMes(planosParaResumo, mes);
   const sessoesPendentesMes = calcularSessoesPendentesMes(planosParaResumo, mes);
+
+  const vendasSimplesDoMes = filtrarVendasSimplesDoMes(entradasSaidasDoMes);
+  const receitaVendasSimplesMes = calcularReceitaVendasSimplesMes(vendasSimplesDoMes);
+  const custoVendasSimplesMes = calcularCustoVendasSimplesMes(vendasSimplesDoMes);
+  const custoSessoesPlanosMes = calcularCustoMes(planosParaResumo, mes);
+  const custosFixosMes = calcularCustosFixosMes(entradasSaidasDoMes);
+  const parcelasDividaPagasMes = calcularParcelasDividaPagasMes(parcelasPagasDividaDoMes);
+
+  const paraOndeVaiDinheiro = calcularParaOndeVaiDinheiro({
+    receitaVendasSimplesMes,
+    receitaReconhecidaMes,
+    custoVendasSimplesMes,
+    custoSessoesPlanosMes,
+    custosFixosMes,
+    parcelasDividaPagasMes,
+  });
+
+  const custoPorProdutoMes = mesclarCustoPorProduto(
+    calcularCustoPorProdutoDasVendasSimplesMes(vendasSimplesDoMes),
+    calcularCustoPorProdutoDosPlanosMes(planosParaResumo, mes),
+  );
 
   const estoquePorProduto: EstoqueProduto[] = produtos.map((produto) => {
     const movimentosDoProduto = movimentosEstoque.filter(
@@ -151,6 +212,19 @@ export default async function AnalisePage() {
             receitaReconhecidaMes={receitaReconhecidaMes}
           />
         </div>
+      </div>
+
+      <div className="mb-8">
+        <ParaOndeVaiDinheiro
+          receitaMes={paraOndeVaiDinheiro.receitaMes}
+          custoVendidoMes={paraOndeVaiDinheiro.custoVendidoMes}
+          sobraDepoisDeProduzir={paraOndeVaiDinheiro.sobraDepoisDeProduzir}
+          custosFixosMes={paraOndeVaiDinheiro.custosFixosMes}
+          sobraFinalDoMes={paraOndeVaiDinheiro.sobraFinalDoMes}
+          parcelasDividaPagasMes={paraOndeVaiDinheiro.parcelasDividaPagasMes}
+          oQueRealmenteSobrou={paraOndeVaiDinheiro.oQueRealmenteSobrou}
+          custoPorProduto={custoPorProdutoMes}
+        />
       </div>
 
       <div className="mb-8">

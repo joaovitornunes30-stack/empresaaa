@@ -104,6 +104,49 @@ export function calcularCustoMes(planos: PlanoParaResumo[], mes: string) {
   return total;
 }
 
+export type PlanoItemParaResumoComProduto = Omit<PlanoItemParaResumo, "produto"> & {
+  produto: ProdutoParaCustoComAliquota & { id: string; nome: string };
+};
+
+export type PlanoParaResumoComProduto = {
+  itens: (PlanoItemParaResumoComProduto & ItemComProdutoTributavel)[];
+};
+
+/**
+ * Mesmo cálculo e mesmo filtro de calcularCustoMes (sessões entregues no
+ * mês, alíquota conservadora do plano), mas agrupado por produto — usado no
+ * detalhamento de "Quanto custou o que foi vendido" em Análise. A soma de
+ * todos os itens retornados aqui é sempre igual ao total de calcularCustoMes
+ * para o mesmo conjunto de planos.
+ */
+export function calcularCustoPorProdutoDosPlanosMes(
+  planos: PlanoParaResumoComProduto[],
+  mes: string,
+) {
+  const { inicio, fim } = limitesDoMes(mes);
+  const porProduto = new Map<string, { produtoId: string; nome: string; custo: number }>();
+  for (const plano of planos) {
+    const aliquotaMaxima = calcularAliquotaMaximaPlano(plano);
+    for (const item of plano.itens) {
+      const valorSessao = calcularValorSessaoItem(item);
+      for (const sessao of item.sessoes) {
+        if (
+          sessao.status === "entregue" &&
+          sessao.dataEntregue !== null &&
+          sessao.dataEntregue.getTime() >= inicio.getTime() &&
+          sessao.dataEntregue.getTime() < fim.getTime()
+        ) {
+          const custo = calcularCustoComAliquota(item.produto, valorSessao, aliquotaMaxima);
+          const atual = porProduto.get(item.produto.id);
+          if (atual) atual.custo += custo;
+          else porProduto.set(item.produto.id, { produtoId: item.produto.id, nome: item.produto.nome, custo });
+        }
+      }
+    }
+  }
+  return Array.from(porProduto.values());
+}
+
 export type PlanoParaPendentes = {
   itens: { sessoes: { dataPrevista: Date; status: string }[] }[];
 };

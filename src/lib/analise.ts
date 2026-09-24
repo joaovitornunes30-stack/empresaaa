@@ -1,4 +1,5 @@
 import { formatarMoeda, limitesDoMes } from "@/lib/financeiro";
+import { calcularCustoComAliquota, type ProdutoParaCustoComAliquota } from "@/lib/calculos";
 
 /** Faixa saudável de gasto com mídia, em % do faturamento do mês. Apenas
  * uma referência exibida na tela — não é um limite gravado no banco. */
@@ -253,4 +254,121 @@ export function gerarResumoDoMes(input: ResumoDoMesInput): string[] {
   }
 
   return linhas;
+}
+
+// ---------- "Para Onde Vai o Dinheiro" ----------
+
+export type ProdutoParaCustoVenda = ProdutoParaCustoComAliquota & {
+  id: string;
+  nome: string;
+  perfilTributario: { aliquota: number };
+};
+
+/**
+ * Uma "venda simples" é uma Entrada com produto vinculado — diferente de uma
+ * venda de Plano, que não grava produtoId na EntradaSaida (o valor total do
+ * plano entra de uma vez, e sua receita é reconhecida à parte, por sessão
+ * entregue — ver calcularReceitaReconhecidaMes/calcularCustoMes em
+ * lib/planos.ts). Sem esse filtro por produtoId, a receita/custo de um plano
+ * contaria duas vezes nesta seção.
+ */
+export type VendaSimplesComProduto = { valor: number; produto: ProdutoParaCustoVenda | null };
+
+export function filtrarVendasSimplesDoMes(entradasSaidas: {
+  tipo: string;
+  produto: ProdutoParaCustoVenda | null;
+  valor: number;
+}[]): VendaSimplesComProduto[] {
+  return entradasSaidas.filter(
+    (item): item is typeof item & { produto: ProdutoParaCustoVenda } =>
+      item.tipo === "entrada" && item.produto !== null,
+  );
+}
+
+export function calcularReceitaVendasSimplesMes(vendasSimples: { valor: number }[]) {
+  return vendasSimples.reduce((total, venda) => total + venda.valor, 0);
+}
+
+/** Mesmo cálculo usado na margem de contribuição do produto (material +
+ * imposto + comissão), aplicado ao valor de cada venda simples do mês. */
+export function calcularCustoVendasSimplesMes(vendasSimples: VendaSimplesComProduto[]) {
+  return vendasSimples.reduce((total, venda) => {
+    if (!venda.produto) return total;
+    return total + calcularCustoComAliquota(venda.produto, venda.valor, venda.produto.perfilTributario.aliquota);
+  }, 0);
+}
+
+export type CustoPorProduto = { produtoId: string; nome: string; custo: number };
+
+export function calcularCustoPorProdutoDasVendasSimplesMes(
+  vendasSimples: VendaSimplesComProduto[],
+): CustoPorProduto[] {
+  const porProduto = new Map<string, CustoPorProduto>();
+  for (const venda of vendasSimples) {
+    if (!venda.produto) continue;
+    const custo = calcularCustoComAliquota(venda.produto, venda.valor, venda.produto.perfilTributario.aliquota);
+    const atual = porProduto.get(venda.produto.id);
+    if (atual) atual.custo += custo;
+    else porProduto.set(venda.produto.id, { produtoId: venda.produto.id, nome: venda.produto.nome, custo });
+  }
+  return Array.from(porProduto.values());
+}
+
+/** Combina duas listas de custo por produto (vendas simples + sessões de
+ * plano) somando o custo de produtos repetidos, ordenado do que mais
+ * consumiu para o que menos consumiu. */
+export function mesclarCustoPorProduto(...listas: CustoPorProduto[][]): CustoPorProduto[] {
+  const porProduto = new Map<string, CustoPorProduto>();
+  for (const lista of listas) {
+    for (const item of lista) {
+      const atual = porProduto.get(item.produtoId);
+      if (atual) atual.custo += item.custo;
+      else porProduto.set(item.produtoId, { ...item });
+    }
+  }
+  return Array.from(porProduto.values()).sort((a, b) => b.custo - a.custo);
+}
+
+/** Saídas do mês que não são compra de Material (já contabilizada no custo
+ * do que foi vendido) nem parcela de Dívida (linha própria na cascata) —
+ * aluguel, mídia, salário, prestador de serviço, impostos avulsos, etc. */
+export function calcularCustosFixosMes(
+  entradasSaidas: { tipo: string; categoria: string; valor: number }[],
+) {
+  return entradasSaidas
+    .filter(
+      (item) => item.tipo === "saida" && item.categoria !== "Material" && item.categoria !== "Dívida",
+    )
+    .reduce((total, item) => total + item.valor, 0);
+}
+
+export function calcularParcelasDividaPagasMes(parcelasPagasDeDivida: { valor: number }[]) {
+  return parcelasPagasDeDivida.reduce((total, parcela) => total + parcela.valor, 0);
+}
+
+export type ParaOndeVaiDinheiroInput = {
+  receitaVendasSimplesMes: number;
+  receitaReconhecidaMes: number;
+  custoVendasSimplesMes: number;
+  custoSessoesPlanosMes: number;
+  custosFixosMes: number;
+  parcelasDividaPagasMes: number;
+};
+
+export function calcularParaOndeVaiDinheiro(input: ParaOndeVaiDinheiroInput) {
+  const receitaMes = input.receitaVendasSimplesMes + input.receitaReconhecidaMes;
+  const custoVendidoMes = input.custoVendasSimplesMes + input.custoSessoesPlanosMes;
+  const sobraDepoisDeProduzir = receitaMes - custoVendidoMes;
+  const sobraFinalDoMes = sobraDepoisDeProduzir - input.custosFixosMes;
+  const oQueRealmenteSobrou = sobraFinalDoMes - input.parcelasDividaPagasMes;
+
+  return {
+    receitaMes,
+    custoVendidoMes,
+    sobraDepoisDeProduzir,
+    custosFixosMes: input.custosFixosMes,
+    sobraFinalDoMes,
+    parcelasDividaPagasMes: input.parcelasDividaPagasMes,
+    oQueRealmenteSobrou,
+  };
 }
