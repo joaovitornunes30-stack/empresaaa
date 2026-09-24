@@ -37,7 +37,23 @@ model Produto {
   movimentosEstoque  EstoqueMovimento[]
   planoItens         PlanoItem[]
   planoModeloItens   PlanoModeloItem[]
+  // Itens do protocolo quando este produto É um protocolo (produto composto).
+  protocoloItens     ProtocoloItem[]    @relation("ProtocoloItens")
+  // Protocolos de outros produtos que usam este produto como material/insumo.
+  usadoComoMaterial  ProtocoloItem[]    @relation("MaterialUsado")
   createdAt          DateTime           @default(now())
+}
+
+// Um material (outro Produto) consumido por um Produto "protocolo" — ex: o
+// protocolo "Harmonização Facial" usa Toxina, Preenchedor e Skinbooster,
+// cada um com sua própria quantidade consumida.
+model ProtocoloItem {
+  id           String  @id @default(cuid())
+  produtoPaiId String
+  produtoPai   Produto @relation("ProtocoloItens", fields: [produtoPaiId], references: [id], onDelete: Cascade)
+  materialId   String
+  material     Produto @relation("MaterialUsado", fields: [materialId], references: [id])
+  quantidade   Float
 }
 
 model EntradaSaida {

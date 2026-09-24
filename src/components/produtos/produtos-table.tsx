@@ -29,6 +29,10 @@ type Produto = {
   comissaoTipo: "percentual" | "fixo";
   comissaoValor: number;
   perfilTributario: { nome: string; aliquota: number };
+  protocoloItens: {
+    quantidade: number;
+    material: { nome: string; custoMedioMaterial: number };
+  }[];
 };
 
 export function ProdutosTable({ produtos }: { produtos: Produto[] }) {
@@ -82,7 +86,24 @@ export function ProdutosTable({ produtos }: { produtos: Produto[] }) {
                   )}
                 </td>
                 <td className="px-5 py-4 text-foreground/70">
-                  {formatarMoeda(produto.custoMedioMaterial)}
+                  {produto.protocoloItens.length > 0 ? (
+                    <span
+                      className="inline-flex cursor-help items-center gap-1.5"
+                      title={produto.protocoloItens
+                        .map(
+                          (item) =>
+                            `${item.material.nome}: ${formatarMoeda(item.material.custoMedioMaterial)} × ${item.quantidade} = ${formatarMoeda(item.material.custoMedioMaterial * item.quantidade)}`,
+                        )
+                        .join("\n")}
+                    >
+                      {formatarMoeda(produto.custoMedioMaterial)}
+                      <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                        calculado
+                      </span>
+                    </span>
+                  ) : (
+                    formatarMoeda(produto.custoMedioMaterial)
+                  )}
                 </td>
                 <td className="px-5 py-4 text-foreground/70">
                   {formatarComissao(

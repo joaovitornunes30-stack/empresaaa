@@ -8,11 +8,22 @@ export const dynamic = "force-dynamic";
 export default async function ProdutosPage() {
   const [produtos, perfis] = await Promise.all([
     prisma.produto.findMany({
-      include: { perfilTributario: true },
+      include: {
+        perfilTributario: true,
+        protocoloItens: {
+          include: { material: { select: { nome: true, custoMedioMaterial: true } } },
+        },
+      },
       orderBy: { createdAt: "desc" },
     }),
     prisma.perfilTributario.findMany({ orderBy: { nome: "asc" } }),
   ]);
+
+  // Só produtos que não são, eles mesmos, um protocolo podem ser usados como
+  // material de um protocolo (evita protocolo aninhado).
+  const materiaisDisponiveis = produtos
+    .filter((produto) => produto.protocoloItens.length === 0)
+    .map((produto) => ({ id: produto.id, nome: produto.nome, custoMedioMaterial: produto.custoMedioMaterial }));
 
   return (
     <main className="mx-auto max-w-6xl px-6 py-10 sm:px-10">
@@ -28,7 +39,7 @@ export default async function ProdutosPage() {
         </div>
         <div className="flex items-center gap-3">
           <PerfisTributariosManager perfis={perfis} />
-          <NovoProdutoButton perfis={perfis} />
+          <NovoProdutoButton perfis={perfis} materiaisDisponiveis={materiaisDisponiveis} />
         </div>
       </header>
 

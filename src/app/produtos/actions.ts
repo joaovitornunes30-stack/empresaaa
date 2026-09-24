@@ -8,6 +8,11 @@ export type ActionState = {
   error: string | null;
 };
 
+const protocoloItemSchema = z.object({
+  materialId: z.string().trim().min(1),
+  quantidade: z.coerce.number().positive("Quantidade deve ser maior que zero."),
+});
+
 const produtoSchema = z
   .object({
     nome: z.string().trim().min(1, "Informe o nome do produto."),
@@ -33,6 +38,10 @@ const produtoSchema = z
       .string()
       .trim()
       .min(1, "Selecione um perfil tributário."),
+    protocoloItensJson: z
+      .string()
+      .optional()
+      .transform((value) => (value ? value : undefined)),
   })
   .refine(
     (data) => data.comissaoTipo !== "percentual" || data.comissaoValor <= 100,
@@ -55,13 +64,90 @@ export async function criarProduto(
     comissaoValor: formData.get("comissaoValor"),
     divisorCustoEspaco: formData.get("divisorCustoEspaco"),
     perfilTributarioId: formData.get("perfilTributarioId"),
+    protocoloItensJson: formData.get("protocoloItensJson") || undefined,
   });
 
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
   }
 
-  await prisma.produto.create({ data: parsed.data });
+  const { protocoloItensJson, custoMedioMaterial: custoInformado, ...data } =
+    parsed.data;
+
+  let itensProtocolo: { materialId: string; quantidade: number }[] = [];
+  if (protocoloItensJson) {
+    let itensBrutos: unknown;
+    try {
+      itensBrutos = JSON.parse(protocoloItensJson);
+    } catch {
+      return { error: "Itens do protocolo inválidos." };
+    }
+
+    const parsedItens = z
+      .array(protocoloItemSchema)
+      .min(1, "Adicione ao menos um material ao protocolo.")
+      .safeParse(itensBrutos);
+
+    if (!parsedItens.success) {
+      return {
+        error:
+          parsedItens.error.issues[0]?.message ??
+          "Verifique os materiais adicionados ao protocolo.",
+      };
+    }
+
+    itensProtocolo = parsedItens.data;
+  }
+
+  // Quando o produto é um protocolo, o custo médio de material é sempre
+  // calculado como a soma de (custo de cada material x quantidade) — o
+  // valor digitado no formulário é ignorado.
+  let custoMedioMaterial = custoInformado;
+
+  if (itensProtocolo.length > 0) {
+    const materiaisIds = [...new Set(itensProtocolo.map((item) => item.materialId))];
+    const materiais = await prisma.produto.findMany({
+      where: { id: { in: materiaisIds } },
+      select: {
+        id: true,
+        custoMedioMaterial: true,
+        _count: { select: { protocoloItens: true } },
+      },
+    });
+
+    if (materiais.length !== materiaisIds.length) {
+      return { error: "Um ou mais materiais selecionados não foram encontrados." };
+    }
+    if (materiais.some((material) => material._count.protocoloItens > 0)) {
+      return { error: "Um protocolo não pode usar outro protocolo como material." };
+    }
+
+    const custoPorMaterial = new Map(
+      materiais.map((material) => [material.id, material.custoMedioMaterial]),
+    );
+    custoMedioMaterial = itensProtocolo.reduce(
+      (total, item) =>
+        total + (custoPorMaterial.get(item.materialId) ?? 0) * item.quantidade,
+      0,
+    );
+  }
+
+  await prisma.produto.create({
+    data: {
+      ...data,
+      custoMedioMaterial,
+      ...(itensProtocolo.length > 0
+        ? {
+            protocoloItens: {
+              create: itensProtocolo.map((item) => ({
+                materialId: item.materialId,
+                quantidade: item.quantidade,
+              })),
+            },
+          }
+        : {}),
+    },
+  });
 
   revalidatePath("/produtos");
   return { error: null };

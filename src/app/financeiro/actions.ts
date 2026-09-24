@@ -135,15 +135,37 @@ export async function criarEntradaSaida(
     // Uma venda com produto e quantidade informados baixa o estoque
     // automaticamente — não deve ser lançada de novo na tela de Estoque.
     if (produtoVendidoId && quantidadeVendida) {
-      await tx.estoqueMovimento.create({
-        data: {
-          produtoId: produtoVendidoId,
-          tipo: "saida",
-          quantidade: quantidadeVendida,
-          data,
-          descricao: "Venda",
-        },
+      const produtoVendido = await tx.produto.findUnique({
+        where: { id: produtoVendidoId },
+        select: { protocoloItens: { select: { materialId: true, quantidade: true } } },
       });
+
+      if (produtoVendido && produtoVendido.protocoloItens.length > 0) {
+        // Produto é um protocolo: a baixa de estoque reflete cada material
+        // que o compõe, na quantidade definida no protocolo x quantidade
+        // vendida. EstoqueMovimento.quantidade é inteiro, então o total é
+        // arredondado (protocolos com quantidades fracionárias de material
+        // ainda não têm rastreio de estoque em fração de unidade).
+        await tx.estoqueMovimento.createMany({
+          data: produtoVendido.protocoloItens.map((item) => ({
+            produtoId: item.materialId,
+            tipo: "saida",
+            quantidade: Math.round(item.quantidade * quantidadeVendida),
+            data,
+            descricao: "Venda (protocolo)",
+          })),
+        });
+      } else {
+        await tx.estoqueMovimento.create({
+          data: {
+            produtoId: produtoVendidoId,
+            tipo: "saida",
+            quantidade: quantidadeVendida,
+            data,
+            descricao: "Venda",
+          },
+        });
+      }
     }
   });
 
