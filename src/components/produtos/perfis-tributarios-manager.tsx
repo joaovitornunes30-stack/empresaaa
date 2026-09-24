@@ -5,7 +5,7 @@ import {
   criarPerfilTributario,
   editarPerfilTributario,
   type ActionState,
-} from "@/app/produtos/actions";
+} from "@/app/(app)/produtos/actions";
 import { Modal } from "@/components/ui/modal";
 
 const initialState: ActionState = { error: null };

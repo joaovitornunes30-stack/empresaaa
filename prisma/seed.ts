@@ -1,4 +1,5 @@
 import { prisma } from "../src/lib/prisma";
+import { runWithTenant } from "../src/lib/tenant-context";
 
 async function main() {
   // Nomes de exemplo genéricos, de propósito: o nome do perfil é texto livre
@@ -11,6 +12,7 @@ async function main() {
       id: "perfil-exemplo-padrao",
       nome: "Perfil Padrão",
       aliquota: 6,
+      clinicaId: "clinica-padrao",
     },
   });
 
@@ -21,6 +23,7 @@ async function main() {
       id: "perfil-exemplo-avancado",
       nome: "Perfil Avançado",
       aliquota: 11.33,
+      clinicaId: "clinica-padrao",
     },
   });
 
@@ -37,6 +40,7 @@ async function main() {
       comissaoValor: 10,
       divisorCustoEspaco: 1,
       perfilTributarioId: perfilPadrao.id,
+      clinicaId: "clinica-padrao",
     },
   });
 
@@ -53,6 +57,7 @@ async function main() {
       comissaoValor: 100,
       divisorCustoEspaco: 1,
       perfilTributarioId: perfilAvancado.id,
+      clinicaId: "clinica-padrao",
     },
   });
 
@@ -69,11 +74,22 @@ async function main() {
       comissaoValor: 15,
       divisorCustoEspaco: 2,
       perfilTributarioId: perfilPadrao.id,
+      clinicaId: "clinica-padrao",
     },
   });
 }
 
-main()
+runWithTenant(
+  {
+    usuarioId: "usuario-dono-padrao",
+    nome: "Administrador",
+    email: "admin@aivy.local",
+    papel: "dono",
+    clinicaId: "clinica-padrao",
+    clinicaNome: "Clínica Padrão",
+  },
+  main,
+)
   .then(async () => {
     await prisma.$disconnect();
   })

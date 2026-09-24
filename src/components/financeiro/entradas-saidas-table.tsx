@@ -1,4 +1,4 @@
-import { marcarParcelaPaga } from "@/app/financeiro/actions";
+import { marcarParcelaPaga } from "@/app/(app)/financeiro/actions";
 import { formatarData, formatarMoeda, parcelaVencida } from "@/lib/financeiro";
 import { MetaLucroTermometro } from "@/components/financeiro/meta-lucro-termometro";
 import { DefinirMetaButton } from "@/components/financeiro/definir-meta-button";

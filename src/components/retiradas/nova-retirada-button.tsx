@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { criarRetirada, type ActionState } from "@/app/retiradas/actions";
+import { criarRetirada, type ActionState } from "@/app/(app)/retiradas/actions";
 import { Modal } from "@/components/ui/modal";
 
 const initialState: ActionState = { error: null };

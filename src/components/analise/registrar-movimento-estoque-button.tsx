@@ -4,7 +4,7 @@ import { useActionState, useState } from "react";
 import {
   registrarMovimentoEstoque,
   type ActionState,
-} from "@/app/analise/actions";
+} from "@/app/(app)/analise/actions";
 import { Modal } from "@/components/ui/modal";
 
 const initialState: ActionState = { error: null };

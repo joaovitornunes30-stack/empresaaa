@@ -1,0 +1,288 @@
+import { prisma } from "@/lib/prisma";
+import { agruparDividasPorPrazo, limitesDoMes, mesAtual } from "@/lib/financeiro";
+import {
+  calcularCaixaMes,
+  calcularComparativoMensal,
+  calcularComposicaoFaturamento,
+  calcularCustoPorProdutoDasVendasSimplesMes,
+  calcularCustoVendasSimplesMes,
+  calcularCustosFixosMes,
+  calcularEstoqueAtual,
+  calcularFaturamentoMes,
+  calcularGastoMidia,
+  calcularHistoricoEstoque,
+  calcularMetaDoMes,
+  calcularParaOndeVaiDinheiro,
+  calcularParcelasDividaPagasMes,
+  calcularReceitaVendasSimplesMes,
+  calcularVendasMes,
+  filtrarVendasSimplesDoMes,
+  gerarResumoDoMes,
+  mesclarCustoPorProduto,
+  ultimosMeses,
+} from "@/lib/analise";
+import {
+  calcularCustoMes,
+  calcularCustoPorProdutoDosPlanosMes,
+  calcularReceitaReconhecidaMes,
+  calcularSessoesPendentesMes,
+} from "@/lib/planos";
+import { MetaDoMesCard } from "@/components/analise/meta-do-mes-card";
+import { FaturamentoVsCaixa } from "@/components/analise/faturamento-vs-caixa";
+import { ParaOndeVaiDinheiro } from "@/components/analise/para-onde-vai-dinheiro";
+import { SessoesPendentesCard } from "@/components/analise/sessoes-pendentes-card";
+import { EstoqueSection, type EstoqueProduto } from "@/components/analise/estoque-section";
+import { RegistrarMovimentoEstoqueButton } from "@/components/analise/registrar-movimento-estoque-button";
+import { ComposicaoFaturamento } from "@/components/analise/composicao-faturamento";
+import { GastoMidiaCard } from "@/components/analise/gasto-midia-card";
+import { ResumoDividas } from "@/components/financeiro/resumo-dividas";
+import { ComparativoMensalChart } from "@/components/analise/comparativo-mensal-chart";
+import { ResumoDoMes } from "@/components/analise/resumo-do-mes";
+import { exigirSessaoPagina } from "@/lib/auth";
+import { runWithTenant } from "@/lib/tenant-context";
+
+export const dynamic = "force-dynamic";
+
+export default async function AnalisePage() {
+  const sessao = await exigirSessaoPagina(["dono", "consultor"]);
+  return runWithTenant(sessao, () => AnalisePageConteudo(sessao.papel === "consultor"));
+}
+
+async function AnalisePageConteudo(somenteLeitura: boolean) {
+  const hoje = new Date();
+  const mes = mesAtual(hoje);
+  const { inicio, fim } = limitesDoMes(mes);
+  const meses6 = ultimosMeses(6, hoje);
+  const meses3 = ultimosMeses(3, hoje);
+  const { inicio: inicioJanela6Meses } = limitesDoMes(meses6[0]);
+
+  const [
+    entradasSaidasDoMes,
+    parcelasPagasVendasDoMes,
+    parcelasPagasDividaDoMes,
+    dividas,
+    produtos,
+    movimentosEstoque,
+    metaDoMes,
+    entradasSaidasUltimos6Meses,
+    planosParaResumo,
+  ] = await Promise.all([
+    prisma.entradaSaida.findMany({
+      where: { data: { gte: inicio, lt: fim } },
+      select: {
+        tipo: true,
+        categoria: true,
+        valor: true,
+        produtoId: true,
+        produto: {
+          select: {
+            id: true,
+            nome: true,
+            custoMedioMaterial: true,
+            comissaoTipo: true,
+            comissaoValor: true,
+            perfilTributario: { select: { aliquota: true } },
+          },
+        },
+      },
+    }),
+    prisma.parcela.findMany({
+      where: {
+        status: "pago",
+        dataVencimento: { gte: inicio, lt: fim },
+        entradaSaida: { tipo: "entrada" },
+      },
+      select: { valor: true },
+    }),
+    prisma.parcela.findMany({
+      where: {
+        status: "pago",
+        dataVencimento: { gte: inicio, lt: fim },
+        entradaSaida: { tipo: "saida", dividaId: { not: null } },
+      },
+      select: { valor: true },
+    }),
+    prisma.divida.findMany({
+      include: { entradasSaida: { include: { parcelas: true } } },
+    }),
+    prisma.produto.findMany({
+      select: { id: true, nome: true },
+      orderBy: { nome: "asc" },
+    }),
+    prisma.estoqueMovimento.findMany({
+      select: { produtoId: true, tipo: true, quantidade: true, data: true },
+    }),
+    prisma.metaDoMes.findFirst({ where: { mesReferencia: mes } }),
+    prisma.entradaSaida.findMany({
+      where: { data: { gte: inicioJanela6Meses, lt: fim } },
+      select: { tipo: true, valor: true, data: true },
+    }),
+    prisma.plano.findMany({
+      select: {
+        itens: {
+          select: {
+            valorItem: true,
+            quantidadeSessoes: true,
+            produto: {
+              select: {
+                id: true,
+                nome: true,
+                custoMedioMaterial: true,
+                comissaoTipo: true,
+                comissaoValor: true,
+                perfilTributario: { select: { aliquota: true } },
+              },
+            },
+            sessoes: { select: { status: true, dataEntregue: true, dataPrevista: true } },
+          },
+        },
+      },
+    }),
+  ]);
+
+  const faturamentoMes = calcularFaturamentoMes(entradasSaidasDoMes);
+  const vendasMes = calcularVendasMes(entradasSaidasDoMes);
+  const caixaMes = calcularCaixaMes(parcelasPagasVendasDoMes);
+  const gastoMidia = calcularGastoMidia(entradasSaidasDoMes);
+  const totaisPorPrazo = agruparDividasPorPrazo(dividas);
+  const composicao = calcularComposicaoFaturamento(entradasSaidasDoMes, produtos);
+  const comparativo = calcularComparativoMensal(entradasSaidasUltimos6Meses, meses6);
+  const receitaReconhecidaMes = calcularReceitaReconhecidaMes(planosParaResumo, mes);
+  const sessoesPendentesMes = calcularSessoesPendentesMes(planosParaResumo, mes);
+
+  const vendasSimplesDoMes = filtrarVendasSimplesDoMes(entradasSaidasDoMes);
+  const receitaVendasSimplesMes = calcularReceitaVendasSimplesMes(vendasSimplesDoMes);
+  const custoVendasSimplesMes = calcularCustoVendasSimplesMes(vendasSimplesDoMes);
+  const custoSessoesPlanosMes = calcularCustoMes(planosParaResumo, mes);
+  const custosFixosMes = calcularCustosFixosMes(entradasSaidasDoMes);
+  const parcelasDividaPagasMes = calcularParcelasDividaPagasMes(parcelasPagasDividaDoMes);
+
+  const paraOndeVaiDinheiro = calcularParaOndeVaiDinheiro({
+    receitaVendasSimplesMes,
+    receitaReconhecidaMes,
+    custoVendasSimplesMes,
+    custoSessoesPlanosMes,
+    custosFixosMes,
+    parcelasDividaPagasMes,
+  });
+
+  const custoPorProdutoMes = mesclarCustoPorProduto(
+    calcularCustoPorProdutoDasVendasSimplesMes(vendasSimplesDoMes),
+    calcularCustoPorProdutoDosPlanosMes(planosParaResumo, mes),
+  );
+
+  const estoquePorProduto: EstoqueProduto[] = produtos.map((produto) => {
+    const movimentosDoProduto = movimentosEstoque.filter(
+      (m) => m.produtoId === produto.id,
+    );
+    return {
+      id: produto.id,
+      nome: produto.nome,
+      atual: calcularEstoqueAtual(movimentosDoProduto),
+      historico: calcularHistoricoEstoque(movimentosDoProduto, meses3),
+    };
+  });
+
+  const faturamentoMesAnterior =
+    comparativo.length >= 2 ? comparativo[comparativo.length - 2].faturamento : 0;
+
+  const resumo = gerarResumoDoMes({
+    faturamentoMes,
+    faturamentoMesAnterior,
+    caixaMes,
+    dividaCurtoPrazo: totaisPorPrazo.curto,
+    gastoMidia,
+    estoques: estoquePorProduto.map((produto) => ({
+      nome: produto.nome,
+      historico: produto.historico,
+    })),
+    meta: metaDoMes
+      ? { valorMeta: metaDoMes.valorMeta, ...calcularMetaDoMes(vendasMes, metaDoMes.valorMeta, hoje) }
+      : null,
+  });
+
+  return (
+    <main className="mx-auto max-w-6xl px-6 py-10 sm:px-10">
+      <header className="mb-8">
+        <h1 className="font-display text-2xl font-bold text-foreground">Análise</h1>
+        <p className="mt-1 text-sm text-foreground/60">
+          Painel consolidado do mês — dados reais, sem estimativas.
+        </p>
+      </header>
+
+      <div className="mb-8 grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <MetaDoMesCard
+          mes={mes}
+          valorMeta={metaDoMes?.valorMeta ?? null}
+          vendasMes={vendasMes}
+          somenteLeitura={somenteLeitura}
+        />
+        <div className="lg:col-span-2">
+          <FaturamentoVsCaixa
+            faturamentoMes={faturamentoMes}
+            caixaMes={caixaMes}
+            receitaReconhecidaMes={receitaReconhecidaMes}
+          />
+        </div>
+      </div>
+
+      <div className="mb-8">
+        <ParaOndeVaiDinheiro
+          receitaMes={paraOndeVaiDinheiro.receitaMes}
+          custoVendidoMes={paraOndeVaiDinheiro.custoVendidoMes}
+          sobraDepoisDeProduzir={paraOndeVaiDinheiro.sobraDepoisDeProduzir}
+          custosFixosMes={paraOndeVaiDinheiro.custosFixosMes}
+          sobraFinalDoMes={paraOndeVaiDinheiro.sobraFinalDoMes}
+          parcelasDividaPagasMes={paraOndeVaiDinheiro.parcelasDividaPagasMes}
+          oQueRealmenteSobrou={paraOndeVaiDinheiro.oQueRealmenteSobrou}
+          custoPorProduto={custoPorProdutoMes}
+        />
+      </div>
+
+      <div className="mb-8">
+        <SessoesPendentesCard quantidade={sessoesPendentesMes} />
+      </div>
+
+      <div className="mb-8">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="font-display text-base font-semibold text-foreground">
+            Estoque
+          </h2>
+          {!somenteLeitura && <RegistrarMovimentoEstoqueButton produtos={produtos} />}
+        </div>
+        <EstoqueSection produtos={estoquePorProduto} />
+      </div>
+
+      <div className="mb-8 grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className="rounded-2xl border border-border bg-surface p-5">
+          <h2 className="mb-4 font-display text-base font-semibold text-foreground">
+            Composição do Faturamento
+          </h2>
+          <ComposicaoFaturamento fatias={composicao} />
+        </div>
+        <GastoMidiaCard gastoMidia={gastoMidia} faturamentoMes={faturamentoMes} />
+      </div>
+
+      <div className="mb-8">
+        <h2 className="mb-3 font-display text-base font-semibold text-foreground">
+          Dívidas por prazo
+        </h2>
+        <ResumoDividas totais={totaisPorPrazo} />
+      </div>
+
+      <div className="mb-8">
+        <h2 className="mb-3 font-display text-base font-semibold text-foreground">
+          Comparativo mês a mês
+        </h2>
+        <ComparativoMensalChart pontos={comparativo} />
+      </div>
+
+      <div>
+        <h2 className="mb-3 font-display text-base font-semibold text-foreground">
+          Resumo do mês
+        </h2>
+        <ResumoDoMes linhas={resumo} />
+      </div>
+    </main>
+  );
+}

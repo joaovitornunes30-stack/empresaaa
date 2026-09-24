@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { definirMetaLucro, type ActionState } from "@/app/financeiro/actions";
+import { definirMetaLucro, type ActionState } from "@/app/(app)/financeiro/actions";
 import { Modal } from "@/components/ui/modal";
 
 const initialState: ActionState = { error: null };

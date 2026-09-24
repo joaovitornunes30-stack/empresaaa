@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Sora, Inter } from "next/font/google";
-import { Sidebar } from "@/components/sidebar";
 import "./globals.css";
 
 const sora = Sora({
@@ -22,12 +21,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="pt-BR" className={`${sora.variable} ${inter.variable}`}>
-      <body className="min-h-screen font-sans antialiased">
-        <div className="flex min-h-screen">
-          <Sidebar />
-          <div className="flex-1 min-w-0">{children}</div>
-        </div>
-      </body>
+      <body className="min-h-screen font-sans antialiased">{children}</body>
     </html>
   );
 }

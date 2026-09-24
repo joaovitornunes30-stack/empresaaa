@@ -5,6 +5,7 @@ type VendaHistorico = {
   valor: number;
   data: Date;
   fechadoPor: string | null;
+  fechadoPorUsuario: { nome: string } | null;
   dataProximoRetorno: Date | null;
   produto: { nome: string } | null;
 };
@@ -41,7 +42,9 @@ export function HistoricoVendasTable({ vendas }: { vendas: VendaHistorico[] }) {
                   {formatarMoeda(venda.valor)}
                 </td>
                 <td className="px-5 py-4 text-foreground/70">{formatarData(venda.data)}</td>
-                <td className="px-5 py-4 text-foreground/70">{venda.fechadoPor ?? "—"}</td>
+                <td className="px-5 py-4 text-foreground/70">
+                  {venda.fechadoPorUsuario?.nome ?? venda.fechadoPor ?? "—"}
+                </td>
                 <td className="px-5 py-4 text-foreground/70">
                   {venda.dataProximoRetorno ? formatarData(venda.dataProximoRetorno) : "—"}
                 </td>

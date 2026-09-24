@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { definirMetaDoMes, type ActionState } from "@/app/analise/actions";
+import { definirMetaDoMes, type ActionState } from "@/app/(app)/analise/actions";
 import { Modal } from "@/components/ui/modal";
 import { formatarMoeda } from "@/lib/financeiro";
 import { calcularMetaDoMes } from "@/lib/analise";
@@ -16,10 +16,12 @@ export function MetaDoMesCard({
   mes,
   valorMeta,
   vendasMes,
+  somenteLeitura = false,
 }: {
   mes: string;
   valorMeta: number | null;
   vendasMes: number;
+  somenteLeitura?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [state, formAction, pending] = useActionState(definirMetaDoMes, initialState);
@@ -38,13 +40,15 @@ export function MetaDoMesCard({
         <h3 className="font-display text-base font-semibold text-foreground">
           Meta do Mês
         </h3>
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="text-xs font-medium text-primary hover:text-primary-dark"
-        >
-          {valorMeta === null ? "Definir meta" : "Editar"}
-        </button>
+        {!somenteLeitura && (
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            className="text-xs font-medium text-primary hover:text-primary-dark"
+          >
+            {valorMeta === null ? "Definir meta" : "Editar"}
+          </button>
+        )}
       </div>
 
       {meta ? (

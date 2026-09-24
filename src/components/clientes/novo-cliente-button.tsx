@@ -5,7 +5,7 @@ import {
   criarCliente,
   editarCliente,
   type ActionState,
-} from "@/app/clientes/actions";
+} from "@/app/(app)/clientes/actions";
 import { Modal } from "@/components/ui/modal";
 
 const initialState: ActionState = { error: null };

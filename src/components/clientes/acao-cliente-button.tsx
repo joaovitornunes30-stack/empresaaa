@@ -9,12 +9,14 @@ export function AcaoClienteButton({
   clienteId,
   nomeCliente,
   produtos,
+  usuarios,
   modelos,
   compact,
 }: {
   clienteId: string;
   nomeCliente?: string;
   produtos: { id: string; nome: string }[];
+  usuarios: { id: string; nome: string }[];
   modelos: PlanoModeloOpcao[];
   compact?: boolean;
 }) {
@@ -70,6 +72,7 @@ export function AcaoClienteButton({
           clienteId={clienteId}
           nomeCliente={nomeCliente}
           produtos={produtos}
+          usuarios={usuarios}
           onClose={() => setModalAberto(null)}
         />
       )}

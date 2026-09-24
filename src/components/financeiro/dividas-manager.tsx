@@ -5,7 +5,7 @@ import {
   ativarPagamentoDivida,
   criarDivida,
   type ActionState,
-} from "@/app/financeiro/actions";
+} from "@/app/(app)/financeiro/actions";
 import { Modal } from "@/components/ui/modal";
 import { formatarData, formatarMoeda } from "@/lib/financeiro";
 

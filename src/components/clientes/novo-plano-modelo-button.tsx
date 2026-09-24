@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { criarPlanoModelo, type ActionState } from "@/app/clientes/planos/modelos/actions";
+import { criarPlanoModelo, type ActionState } from "@/app/(app)/clientes/planos/modelos/actions";
 import { Modal } from "@/components/ui/modal";
 import {
   PlanoItensEditor,

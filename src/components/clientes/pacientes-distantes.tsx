@@ -1,4 +1,4 @@
-import { atualizarObservacoesCliente } from "@/app/clientes/actions";
+import { atualizarObservacoesCliente } from "@/app/(app)/clientes/actions";
 import type { ClienteDistante } from "@/lib/clientes";
 
 export function PacientesDistantes({ clientes }: { clientes: ClienteDistante[] }) {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { criarProduto, type ActionState } from "@/app/produtos/actions";
+import { criarProduto, type ActionState } from "@/app/(app)/produtos/actions";
 import { Modal } from "@/components/ui/modal";
 import { formatarMoeda } from "@/lib/calculos";
 

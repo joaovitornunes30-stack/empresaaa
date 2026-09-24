@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { criarEntradaSaida, type ActionState } from "@/app/financeiro/actions";
+import { criarEntradaSaida, type ActionState } from "@/app/(app)/financeiro/actions";
 import { Modal } from "@/components/ui/modal";
 
 const initialState: ActionState = { error: null };

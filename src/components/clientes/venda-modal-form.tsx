@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import { criarEntradaSaida, type ActionState } from "@/app/financeiro/actions";
+import { criarEntradaSaida, type ActionState } from "@/app/(app)/financeiro/actions";
 import { Modal } from "@/components/ui/modal";
 
 const initialState: ActionState = { error: null };
@@ -13,11 +13,13 @@ const labelClass = "mb-1.5 block text-sm font-medium text-foreground/80";
 export function VendaModalForm({
   clienteId,
   produtos,
+  usuarios,
   nomeCliente,
   onClose,
 }: {
   clienteId: string;
   produtos: { id: string; nome: string }[];
+  usuarios: { id: string; nome: string }[];
   nomeCliente?: string;
   onClose: () => void;
 }) {
@@ -110,16 +112,22 @@ export function VendaModalForm({
         </div>
 
         <div>
-          <label htmlFor="fechadoPor" className={labelClass}>
+          <label htmlFor="fechadoPorUsuarioId" className={labelClass}>
             Fechado por (opcional)
           </label>
-          <input
-            id="fechadoPor"
-            name="fechadoPor"
-            type="text"
+          <select
+            id="fechadoPorUsuarioId"
+            name="fechadoPorUsuarioId"
             className={inputClass}
-            placeholder="Nome de quem fechou a venda"
-          />
+            defaultValue=""
+          >
+            <option value="">Ninguém</option>
+            {usuarios.map((usuario) => (
+              <option key={usuario.id} value={usuario.id}>
+                {usuario.nome}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div>

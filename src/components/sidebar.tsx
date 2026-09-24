@@ -2,23 +2,25 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import type { Papel } from "@/lib/tenant-context";
 
 type NavItem = {
   label: string;
   href: string;
-  enabled: boolean;
+  papeis: Papel[];
 };
 
 const NAV_ITEMS: NavItem[] = [
-  { label: "Análise", href: "/analise", enabled: true },
-  { label: "Produtos", href: "/produtos", enabled: true },
-  { label: "Clientes", href: "/clientes", enabled: true },
-  { label: "Financeiro", href: "/financeiro", enabled: true },
-  { label: "Retiradas", href: "/retiradas", enabled: true },
+  { label: "Análise", href: "/analise", papeis: ["dono", "consultor"] },
+  { label: "Produtos", href: "/produtos", papeis: ["dono", "equipe", "consultor"] },
+  { label: "Clientes", href: "/clientes", papeis: ["dono", "equipe", "consultor"] },
+  { label: "Financeiro", href: "/financeiro", papeis: ["dono", "consultor"] },
+  { label: "Retiradas", href: "/retiradas", papeis: ["dono", "consultor"] },
 ];
 
-export function Sidebar() {
+export function Sidebar({ papel }: { papel: Papel }) {
   const pathname = usePathname();
+  const itens = NAV_ITEMS.filter((item) => item.papeis.includes(papel));
 
   return (
     <aside className="hidden w-60 shrink-0 flex-col border-r border-border bg-surface px-4 py-6 sm:flex">
@@ -29,20 +31,8 @@ export function Sidebar() {
       </div>
 
       <nav className="flex flex-col gap-1">
-        {NAV_ITEMS.map((item) => {
+        {itens.map((item) => {
           const isActive = pathname?.startsWith(item.href);
-
-          if (!item.enabled) {
-            return (
-              <span
-                key={item.href}
-                className="cursor-not-allowed rounded-xl px-3 py-2 text-sm text-foreground/35"
-                title="Em breve"
-              >
-                {item.label}
-              </span>
-            );
-          }
 
           return (
             <Link

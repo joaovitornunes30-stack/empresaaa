@@ -47,10 +47,12 @@ function StatusDot({ status }: { status: { cor: StatusCliente; dias: number | nu
 export function ClientesTable({
   clientes,
   produtos,
+  usuarios,
   modelos,
 }: {
   clientes: ClienteLinha[];
   produtos: { id: string; nome: string }[];
+  usuarios: { id: string; nome: string }[];
   modelos: PlanoModeloOpcao[];
 }) {
   if (clientes.length === 0) {
@@ -112,6 +114,7 @@ export function ClientesTable({
                   <AcaoClienteButton
                     clienteId={cliente.id}
                     produtos={produtos}
+                    usuarios={usuarios}
                     modelos={modelos}
                     nomeCliente={cliente.nome}
                     compact
