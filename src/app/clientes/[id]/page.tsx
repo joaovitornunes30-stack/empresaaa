@@ -4,9 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { calcularValorTotalGasto } from "@/lib/clientes";
 import { formatarData, formatarMoeda } from "@/lib/financeiro";
 import { HistoricoVendasTable } from "@/components/clientes/historico-vendas-table";
-import { NovaVendaClienteButton } from "@/components/clientes/nova-venda-cliente-button";
 import { EditarClienteButton } from "@/components/clientes/novo-cliente-button";
-import { NovoPlanoButton } from "@/components/financeiro/novo-plano-button";
+import { AcaoClienteButton } from "@/components/clientes/acao-cliente-button";
 
 export const dynamic = "force-dynamic";
 
@@ -83,15 +82,12 @@ export default async function ClienteDetalhePage(
             </p>
           )}
         </div>
-        <div className="flex gap-3">
-          <NovoPlanoButton
-            produtos={produtos}
-            modelos={modelos}
-            clienteId={cliente.id}
-            nomeCliente={cliente.nome}
-          />
-          <NovaVendaClienteButton clienteId={cliente.id} produtos={produtos} />
-        </div>
+        <AcaoClienteButton
+          clienteId={cliente.id}
+          nomeCliente={cliente.nome}
+          produtos={produtos}
+          modelos={modelos}
+        />
       </header>
 
       <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2">

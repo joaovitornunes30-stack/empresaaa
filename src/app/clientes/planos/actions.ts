@@ -107,9 +107,10 @@ export async function criarPlano(
   });
 
   revalidatePath("/financeiro");
-  revalidatePath("/financeiro/planos");
+  revalidatePath("/clientes/planos");
   revalidatePath("/analise");
   revalidatePath("/clientes");
+  if (clienteId) revalidatePath(`/clientes/${clienteId}`);
   return { error: null };
 }
 
@@ -136,7 +137,7 @@ export async function marcarSessaoEntregue(
     data: { status: "entregue", dataEntregue: parsed.data.dataEntregue },
   });
 
-  revalidatePath("/financeiro/planos");
+  revalidatePath("/clientes/planos");
   revalidatePath("/analise");
   return { error: null };
 }
@@ -149,7 +150,7 @@ export async function marcarSessaoPerdida(formData: FormData) {
     data: { status: "perdida" },
   });
 
-  revalidatePath("/financeiro/planos");
+  revalidatePath("/clientes/planos");
   revalidatePath("/analise");
 }
 
@@ -176,7 +177,7 @@ export async function marcarSessaoPostergada(
     data: { status: "postergada", dataPrevista: parsed.data.novaDataPrevista },
   });
 
-  revalidatePath("/financeiro/planos");
+  revalidatePath("/clientes/planos");
   revalidatePath("/analise");
   return { error: null };
 }

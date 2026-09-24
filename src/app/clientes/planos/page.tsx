@@ -2,8 +2,8 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { formatarMoeda, mesAtual } from "@/lib/financeiro";
 import { calcularCustoMes, calcularReceitaReconhecidaMes, type PlanoParaResumo } from "@/lib/planos";
-import { PlanoCard } from "@/components/financeiro/plano-card";
-import { NovoPlanoButton } from "@/components/financeiro/novo-plano-button";
+import { PlanoCard } from "@/components/clientes/plano-card";
+import { NovoPlanoButton } from "@/components/clientes/novo-plano-button";
 
 export const dynamic = "force-dynamic";
 
@@ -54,10 +54,10 @@ export default async function PlanosPage() {
   return (
     <main className="mx-auto max-w-6xl px-6 py-10 sm:px-10">
       <Link
-        href="/financeiro"
+        href="/clientes"
         className="mb-4 inline-block text-sm font-medium text-foreground/60 hover:text-primary-dark"
       >
-        &larr; Voltar para Financeiro
+        &larr; Voltar para Clientes
       </Link>
 
       <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
@@ -69,7 +69,7 @@ export default async function PlanosPage() {
         </div>
         <div className="flex gap-3">
           <Link
-            href="/financeiro/planos/modelos"
+            href="/clientes/planos/modelos"
             className="rounded-xl border border-border bg-surface px-4 py-2.5 text-sm font-medium text-foreground/70 hover:border-primary hover:text-primary-dark"
           >
             Modelos de Plano

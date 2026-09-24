@@ -67,7 +67,7 @@ export async function criarPlanoModelo(
     },
   });
 
-  revalidatePath("/financeiro/planos/modelos");
-  revalidatePath("/financeiro/planos");
+  revalidatePath("/clientes/planos/modelos");
+  revalidatePath("/clientes/planos");
   return { error: null };
 }

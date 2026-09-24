@@ -16,7 +16,7 @@ export function SessoesPendentesCard({ quantidade }: { quantidade: number }) {
           </p>
         </div>
         <Link
-          href="/financeiro/planos"
+          href="/clientes/planos"
           className="text-sm font-medium text-primary hover:text-primary-dark"
         >
           Ver planos

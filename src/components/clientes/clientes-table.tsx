@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { formatarData, formatarMoeda } from "@/lib/financeiro";
 import type { StatusCliente } from "@/lib/clientes";
-import { NovaVendaClienteButton } from "@/components/clientes/nova-venda-cliente-button";
+import { AcaoClienteButton } from "@/components/clientes/acao-cliente-button";
+import type { PlanoModeloOpcao } from "@/components/clientes/plano-modal-form";
 
 type ClienteLinha = {
   id: string;
@@ -46,9 +47,11 @@ function StatusDot({ status }: { status: { cor: StatusCliente; dias: number | nu
 export function ClientesTable({
   clientes,
   produtos,
+  modelos,
 }: {
   clientes: ClienteLinha[];
   produtos: { id: string; nome: string }[];
+  modelos: PlanoModeloOpcao[];
 }) {
   if (clientes.length === 0) {
     return (
@@ -106,9 +109,10 @@ export function ClientesTable({
                     : "Sem plano ativo"}
                 </td>
                 <td className="px-5 py-4 text-right">
-                  <NovaVendaClienteButton
+                  <AcaoClienteButton
                     clienteId={cliente.id}
                     produtos={produtos}
+                    modelos={modelos}
                     nomeCliente={cliente.nome}
                     compact
                   />

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { formatarMoeda } from "@/lib/financeiro";
 import { calcularValorSessaoItem } from "@/lib/planos";
-import { NovoPlanoModeloButton } from "@/components/financeiro/novo-plano-modelo-button";
+import { NovoPlanoModeloButton } from "@/components/clientes/novo-plano-modelo-button";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +18,7 @@ export default async function PlanosModelosPage() {
   return (
     <main className="mx-auto max-w-6xl px-6 py-10 sm:px-10">
       <Link
-        href="/financeiro/planos"
+        href="/clientes/planos"
         className="mb-4 inline-block text-sm font-medium text-foreground/60 hover:text-primary-dark"
       >
         &larr; Voltar para Planos

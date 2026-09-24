@@ -145,11 +145,9 @@ export async function criarEntradaSaida(
         },
       });
     }
-
   });
 
   revalidatePath("/financeiro");
-  revalidatePath("/financeiro/planos");
   revalidatePath("/analise");
   revalidatePath("/clientes");
   return { error: null };

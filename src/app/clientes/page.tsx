@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import {
   calcularStatusCliente,
@@ -15,7 +16,7 @@ import { RankingIndicacoes } from "@/components/clientes/ranking-indicacoes";
 export const dynamic = "force-dynamic";
 
 export default async function ClientesPage() {
-  const [clientes, produtos] = await Promise.all([
+  const [clientes, produtos, modelos] = await Promise.all([
     prisma.cliente.findMany({
       orderBy: { nome: "asc" },
       include: {
@@ -24,6 +25,10 @@ export default async function ClientesPage() {
       },
     }),
     prisma.produto.findMany({ select: { id: true, nome: true }, orderBy: { nome: "asc" } }),
+    prisma.planoModelo.findMany({
+      orderBy: { nome: "asc" },
+      include: { itens: { select: { produtoId: true, quantidadeSessoes: true, valorItem: true, intervaloDias: true } } },
+    }),
   ]);
 
   const linhasTabela = clientes.map((cliente) => ({
@@ -63,7 +68,15 @@ export default async function ClientesPage() {
             Acompanhe sua base, indicações e quem precisa de um retorno.
           </p>
         </div>
-        <NovoClienteButton clientes={clientes.map((c) => ({ id: c.id, nome: c.nome }))} />
+        <div className="flex gap-3">
+          <Link
+            href="/clientes/planos"
+            className="rounded-xl border border-border bg-surface px-4 py-2.5 text-sm font-medium text-foreground/70 hover:border-primary hover:text-primary-dark"
+          >
+            Planos
+          </Link>
+          <NovoClienteButton clientes={clientes.map((c) => ({ id: c.id, nome: c.nome }))} />
+        </div>
       </header>
 
       <div className="mb-8">
@@ -77,7 +90,7 @@ export default async function ClientesPage() {
         <h2 className="mb-3 font-display text-base font-semibold text-foreground">
           Todos os clientes
         </h2>
-        <ClientesTable clientes={linhasTabela} produtos={produtos} />
+        <ClientesTable clientes={linhasTabela} produtos={produtos} modelos={modelos} />
       </div>
 
       <div>

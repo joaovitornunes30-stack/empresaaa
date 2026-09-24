@@ -1,14 +1,14 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { criarPlanoModelo, type ActionState } from "@/app/financeiro/planos/modelos/actions";
+import { criarPlanoModelo, type ActionState } from "@/app/clientes/planos/modelos/actions";
 import { Modal } from "@/components/ui/modal";
 import {
   PlanoItensEditor,
   criarItemVazio,
   itensParaPayload,
   type PlanoItemFormRow,
-} from "@/components/financeiro/plano-itens-editor";
+} from "@/components/clientes/plano-itens-editor";
 
 const initialState: ActionState = { error: null };
 const inputClass =

@@ -6,7 +6,7 @@ import {
   marcarSessaoPerdida,
   marcarSessaoPostergada,
   type ActionState,
-} from "@/app/financeiro/planos/actions";
+} from "@/app/clientes/planos/actions";
 import { formatarData } from "@/lib/financeiro";
 
 const initialState: ActionState = { error: null };

@@ -1,6 +1,6 @@
 import { formatarMoeda } from "@/lib/financeiro";
 import { agruparSessoesPorMes, calcularValorSessaoItem } from "@/lib/planos";
-import { SessaoRow } from "@/components/financeiro/sessao-row";
+import { SessaoRow } from "@/components/clientes/sessao-row";
 
 type Sessao = {
   id: string;
