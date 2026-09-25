@@ -2,13 +2,13 @@ import { prisma } from "@/lib/prisma";
 import { ProdutosTable } from "@/components/produtos/produtos-table";
 import { NovoProdutoButton } from "@/components/produtos/novo-produto-button";
 import { PerfisTributariosManager } from "@/components/produtos/perfis-tributarios-manager";
-import { exigirSessaoPagina } from "@/lib/auth";
+import { exigirSessaoAba } from "@/lib/permissoes";
 import { runWithTenant } from "@/lib/tenant-context";
 
 export const dynamic = "force-dynamic";
 
 export default async function ProdutosPage() {
-  const sessao = await exigirSessaoPagina(["dono", "equipe", "consultor"]);
+  const sessao = await exigirSessaoAba("produtos");
   return runWithTenant(sessao, () => ProdutosPageConteudo(sessao.papel === "dono"));
 }
 

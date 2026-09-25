@@ -1,23 +1,26 @@
 import { prisma } from "@/lib/prisma";
-import { exigirSessaoPagina } from "@/lib/auth";
 import { runWithTenant } from "@/lib/tenant-context";
+import { exigirSessaoAba } from "@/lib/permissoes";
 import { ConvidarUsuarioButton } from "@/components/equipe/convidar-usuario-button";
 import { EquipeTable } from "@/components/equipe/equipe-table";
 
 export const dynamic = "force-dynamic";
 
 export default async function EquipePage() {
-  const sessao = await exigirSessaoPagina(["dono"]);
-  return runWithTenant(sessao, () => EquipePageConteudo(sessao.clinicaId, sessao.usuarioId));
+  const sessao = await exigirSessaoAba("equipe");
+  return runWithTenant(sessao, () =>
+    EquipePageConteudo(sessao.clinicaId, sessao.usuarioId, sessao.papel === "dono"),
+  );
 }
 
-async function EquipePageConteudo(clinicaId: string, usuarioAtualId: string) {
+async function EquipePageConteudo(clinicaId: string, usuarioAtualId: string, souDono: boolean) {
   // Usuario não é isolado automaticamente pela extensão do Prisma (seu
   // clinicaId é opcional — nulo para "consultor") — filtra explicitamente.
   const [equipe, consultoresAcesso] = await Promise.all([
     prisma.usuario.findMany({
       where: { clinicaId },
       orderBy: { createdAt: "asc" },
+      include: { permissoes: true },
     }),
     prisma.consultorAcesso.findMany({
       where: { clinicaId },
@@ -36,14 +39,14 @@ async function EquipePageConteudo(clinicaId: string, usuarioAtualId: string) {
             Gerencie quem tem acesso à sua clínica no Aivy.
           </p>
         </div>
-        <ConvidarUsuarioButton />
+        {souDono && <ConvidarUsuarioButton />}
       </header>
 
       <div className="mb-8">
         <h2 className="mb-3 font-display text-base font-semibold text-foreground">
           Equipe da clínica
         </h2>
-        <EquipeTable usuarios={equipe} usuarioAtualId={usuarioAtualId} />
+        <EquipeTable usuarios={equipe} usuarioAtualId={usuarioAtualId} podeGerenciar={souDono} />
       </div>
 
       {consultoresAcesso.length > 0 && (

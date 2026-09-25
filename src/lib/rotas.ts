@@ -4,7 +4,7 @@ import type { Papel } from "@/lib/tenant-context";
 // quanto por lib/auth.ts (Node).
 const ROTA_PADRAO_POR_PAPEL: Record<Papel, string> = {
   dono: "/analise",
-  equipe: "/clientes",
+  membro: "/clientes",
   consultor: "/analise",
 };
 

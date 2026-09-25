@@ -12,7 +12,15 @@ function iniciais(nome: string) {
   return (primeira + ultima).toUpperCase();
 }
 
-export function AccountMenu({ nome, papel }: { nome: string; papel: Papel }) {
+export function AccountMenu({
+  nome,
+  papel,
+  podeAcessarEquipe,
+}: {
+  nome: string;
+  papel: Papel;
+  podeAcessarEquipe: boolean;
+}) {
   const [aberto, setAberto] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -42,7 +50,7 @@ export function AccountMenu({ nome, papel }: { nome: string; papel: Papel }) {
 
       {aberto && (
         <div className="absolute right-0 top-full z-20 mt-2 w-52 rounded-xl border border-border bg-surface py-1.5 shadow-lg">
-          {papel === "dono" && (
+          {podeAcessarEquipe && (
             <Link
               href="/equipe"
               onClick={() => setAberto(false)}

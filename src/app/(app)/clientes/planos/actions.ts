@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { gerarDatasPrevistas } from "@/lib/planos";
-import { comSessao, comSessaoSimples, type ActionState } from "@/lib/auth";
+import { type ActionState } from "@/lib/auth";
+import { comSessaoAba, comSessaoSimplesAba } from "@/lib/permissoes";
 
 export type { ActionState };
 
@@ -26,7 +27,7 @@ const criarPlanoSchema = z.object({
   itensJson: z.string().min(1, "Adicione ao menos um produto/serviço."),
 });
 
-export const criarPlano = comSessao(["dono", "equipe"], async (ctx, _prevState, formData) => {
+export const criarPlano = comSessaoAba("clientes", async (ctx, _prevState, formData) => {
   const parsed = criarPlanoSchema.safeParse({
     nome: formData.get("nome"),
     clienteId: formData.get("clienteId") || undefined,
@@ -119,7 +120,7 @@ const marcarEntregueSchema = z.object({
 // Sessao não tem clinicaId próprio (isolada transitivamente via
 // PlanoItem -> Plano) — a extensão do Prisma não a filtra automaticamente,
 // então cada update aqui restringe explicitamente pela clínica do plano.
-export const marcarSessaoEntregue = comSessao(["dono", "equipe"], async (ctx, _prevState, formData) => {
+export const marcarSessaoEntregue = comSessaoAba("clientes", async (ctx, _prevState, formData) => {
   const parsed = marcarEntregueSchema.safeParse({
     id: formData.get("id"),
     dataEntregue: formData.get("dataEntregue"),
@@ -140,7 +141,7 @@ export const marcarSessaoEntregue = comSessao(["dono", "equipe"], async (ctx, _p
   return { error: null };
 });
 
-export const marcarSessaoPerdida = comSessaoSimples(["dono", "equipe"], async (ctx, formData) => {
+export const marcarSessaoPerdida = comSessaoSimplesAba("clientes", async (ctx, formData) => {
   const id = z.string().trim().min(1).parse(formData.get("id"));
 
   await prisma.sessao.updateMany({
@@ -157,7 +158,7 @@ const marcarPostergadaSchema = z.object({
   novaDataPrevista: z.coerce.date({ error: "Informe uma nova data válida." }),
 });
 
-export const marcarSessaoPostergada = comSessao(["dono", "equipe"], async (ctx, _prevState, formData) => {
+export const marcarSessaoPostergada = comSessaoAba("clientes", async (ctx, _prevState, formData) => {
   const parsed = marcarPostergadaSchema.safeParse({
     id: formData.get("id"),
     novaDataPrevista: formData.get("novaDataPrevista"),

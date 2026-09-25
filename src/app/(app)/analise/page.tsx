@@ -38,14 +38,14 @@ import { GastoMidiaCard } from "@/components/analise/gasto-midia-card";
 import { ResumoDividas } from "@/components/financeiro/resumo-dividas";
 import { ComparativoMensalChart } from "@/components/analise/comparativo-mensal-chart";
 import { ResumoDoMes } from "@/components/analise/resumo-do-mes";
-import { exigirSessaoPagina } from "@/lib/auth";
+import { exigirSessaoAba } from "@/lib/permissoes";
 import { runWithTenant } from "@/lib/tenant-context";
 import { sincronizarLancamentosRecorrentes } from "@/lib/folha";
 
 export const dynamic = "force-dynamic";
 
 export default async function AnalisePage() {
-  const sessao = await exigirSessaoPagina(["dono", "consultor"]);
+  const sessao = await exigirSessaoAba("analise");
   return runWithTenant(sessao, () => AnalisePageConteudo(sessao.papel === "consultor"));
 }
 

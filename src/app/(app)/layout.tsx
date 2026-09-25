@@ -1,4 +1,5 @@
 import { exigirSessaoPagina } from "@/lib/auth";
+import { abasPermitidas } from "@/lib/permissoes";
 import { Sidebar } from "@/components/sidebar";
 import { AccountMenu } from "@/components/conta/account-menu";
 import { ConsultorBanner } from "@/components/conta/consultor-banner";
@@ -9,16 +10,16 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const sessao = await exigirSessaoPagina();
 
   const banner =
-    sessao.papel === "dono" || sessao.papel === "equipe"
-      ? await bannerConsultorParaClinica(sessao.clinicaId)
-      : null;
+    sessao.papel !== "consultor" ? await bannerConsultorParaClinica(sessao.clinicaId) : null;
 
   const clinicasConsultor =
     sessao.papel === "consultor" ? await clinicasDoConsultor() : [];
 
+  const abas = await abasPermitidas(sessao);
+
   return (
     <div className="flex min-h-screen">
-      <Sidebar papel={sessao.papel} />
+      <Sidebar abasPermitidas={abas} />
       <div className="flex min-w-0 flex-1 flex-col">
         {banner && (
           <ConsultorBanner
@@ -35,7 +36,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               />
             )}
           </div>
-          <AccountMenu nome={sessao.nome} papel={sessao.papel} />
+          <AccountMenu
+            nome={sessao.nome}
+            papel={sessao.papel}
+            podeAcessarEquipe={abas.includes("equipe")}
+          />
         </header>
         <div className="min-w-0 flex-1">{children}</div>
       </div>

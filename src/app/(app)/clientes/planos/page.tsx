@@ -4,13 +4,13 @@ import { formatarMoeda, mesAtual } from "@/lib/financeiro";
 import { calcularCustoMes, calcularReceitaReconhecidaMes, type PlanoParaResumo } from "@/lib/planos";
 import { PlanoCard } from "@/components/clientes/plano-card";
 import { NovoPlanoButton } from "@/components/clientes/novo-plano-button";
-import { exigirSessaoPagina } from "@/lib/auth";
+import { exigirSessaoAba } from "@/lib/permissoes";
 import { runWithTenant } from "@/lib/tenant-context";
 
 export const dynamic = "force-dynamic";
 
 export default async function PlanosPage() {
-  const sessao = await exigirSessaoPagina(["dono", "equipe", "consultor"]);
+  const sessao = await exigirSessaoAba("clientes");
   return runWithTenant(sessao, () => PlanosPageConteudo(sessao.papel === "consultor"));
 }
 

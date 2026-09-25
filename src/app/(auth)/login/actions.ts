@@ -15,7 +15,7 @@ const loginSchema = z.object({
   senha: z.string().min(1, "Informe a senha."),
 });
 
-const PAPEIS_VALIDOS: Papel[] = ["dono", "equipe", "consultor"];
+const PAPEIS_VALIDOS: Papel[] = ["dono", "membro", "consultor"];
 
 export async function login(_prevState: ActionState, formData: FormData): Promise<ActionState> {
   const parsed = loginSchema.safeParse({

@@ -6,13 +6,13 @@ import {
 } from "@/lib/retiradas";
 import { RetiradasTable } from "@/components/retiradas/retiradas-table";
 import { NovaRetiradaButton } from "@/components/retiradas/nova-retirada-button";
-import { exigirSessaoPagina } from "@/lib/auth";
+import { exigirSessaoAba } from "@/lib/permissoes";
 import { runWithTenant } from "@/lib/tenant-context";
 
 export const dynamic = "force-dynamic";
 
 export default async function RetiradasPage() {
-  const sessao = await exigirSessaoPagina(["dono", "consultor"]);
+  const sessao = await exigirSessaoAba("retiradas");
   return runWithTenant(sessao, () => RetiradasPageConteudo(sessao.papel === "consultor"));
 }
 

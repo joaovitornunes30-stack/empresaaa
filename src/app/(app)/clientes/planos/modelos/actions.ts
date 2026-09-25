@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { comSessao, type ActionState } from "@/lib/auth";
+import { type ActionState } from "@/lib/auth";
+import { comSessaoAba } from "@/lib/permissoes";
 
 export type { ActionState };
 
@@ -19,7 +20,7 @@ const criarPlanoModeloSchema = z.object({
   itensJson: z.string().min(1, "Adicione ao menos um produto/serviço."),
 });
 
-export const criarPlanoModelo = comSessao(["dono", "equipe"], async (ctx, _prevState, formData) => {
+export const criarPlanoModelo = comSessaoAba("clientes", async (ctx, _prevState, formData) => {
   const parsed = criarPlanoModeloSchema.safeParse({
     nome: formData.get("nome"),
     itensJson: formData.get("itensJson"),

@@ -3,13 +3,13 @@ import { prisma } from "@/lib/prisma";
 import { formatarMoeda } from "@/lib/financeiro";
 import { calcularValorSessaoItem } from "@/lib/planos";
 import { NovoPlanoModeloButton } from "@/components/clientes/novo-plano-modelo-button";
-import { exigirSessaoPagina } from "@/lib/auth";
+import { exigirSessaoAba } from "@/lib/permissoes";
 import { runWithTenant } from "@/lib/tenant-context";
 
 export const dynamic = "force-dynamic";
 
 export default async function PlanosModelosPage() {
-  const sessao = await exigirSessaoPagina(["dono", "equipe", "consultor"]);
+  const sessao = await exigirSessaoAba("clientes");
   return runWithTenant(sessao, () => PlanosModelosPageConteudo(sessao.papel === "consultor"));
 }
 

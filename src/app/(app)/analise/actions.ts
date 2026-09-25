@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { comSessao, type ActionState } from "@/lib/auth";
+import { type ActionState } from "@/lib/auth";
+import { comSessaoAba } from "@/lib/permissoes";
 
 export type { ActionState };
 
@@ -12,7 +13,7 @@ const metaDoMesSchema = z.object({
   valorMeta: z.coerce.number().positive("Valor deve ser maior que zero."),
 });
 
-export const definirMetaDoMes = comSessao(["dono"], async (ctx, _prevState, formData) => {
+export const definirMetaDoMes = comSessaoAba("analise", async (ctx, _prevState, formData) => {
   const parsed = metaDoMesSchema.safeParse({
     mesReferencia: formData.get("mesReferencia"),
     valorMeta: formData.get("valorMeta"),
@@ -49,7 +50,7 @@ const movimentoEstoqueSchema = z.object({
     .transform((value) => (value ? value : undefined)),
 });
 
-export const registrarMovimentoEstoque = comSessao(["dono"], async (ctx, _prevState, formData) => {
+export const registrarMovimentoEstoque = comSessaoAba("analise", async (ctx, _prevState, formData) => {
   const parsed = movimentoEstoqueSchema.safeParse({
     produtoId: formData.get("produtoId"),
     tipo: formData.get("tipo"),

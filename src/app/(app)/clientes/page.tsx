@@ -12,13 +12,13 @@ import { ClientesTable } from "@/components/clientes/clientes-table";
 import { NovoClienteButton } from "@/components/clientes/novo-cliente-button";
 import { PacientesDistantes } from "@/components/clientes/pacientes-distantes";
 import { RankingIndicacoes } from "@/components/clientes/ranking-indicacoes";
-import { exigirSessaoPagina } from "@/lib/auth";
+import { exigirSessaoAba } from "@/lib/permissoes";
 import { runWithTenant } from "@/lib/tenant-context";
 
 export const dynamic = "force-dynamic";
 
 export default async function ClientesPage() {
-  const sessao = await exigirSessaoPagina(["dono", "equipe", "consultor"]);
+  const sessao = await exigirSessaoAba("clientes");
   return runWithTenant(sessao, () =>
     ClientesPageConteudo(sessao.clinicaId, sessao.papel === "consultor"),
   );
@@ -35,7 +35,7 @@ async function ClientesPageConteudo(clinicaId: string, somenteLeitura: boolean) 
     }),
     prisma.produto.findMany({ select: { id: true, nome: true }, orderBy: { nome: "asc" } }),
     prisma.usuario.findMany({
-      where: { clinicaId, ativo: true, papel: { in: ["dono", "equipe"] } },
+      where: { clinicaId, ativo: true, papel: { in: ["dono", "membro"] } },
       select: { id: true, nome: true },
       orderBy: { nome: "asc" },
     }),

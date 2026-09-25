@@ -3,6 +3,11 @@
 import { useActionState, useState } from "react";
 import { convidarUsuario, type ConvidarState } from "@/app/(app)/equipe/actions";
 import { Modal } from "@/components/ui/modal";
+import {
+  PermissoesFields,
+  PERMISSOES_VAZIAS,
+  type PermissoesValues,
+} from "@/components/equipe/permissoes-fields";
 
 const initialState: ConvidarState = { error: null, convite: null };
 
@@ -12,6 +17,8 @@ const labelClass = "mb-1.5 block text-sm font-medium text-foreground/80";
 
 function ConvidarUsuarioForm({ onClose }: { onClose: () => void }) {
   const [state, formAction, pending] = useActionState(convidarUsuario, initialState);
+  const [papel, setPapel] = useState<"dono" | "membro" | "consultor">("membro");
+  const [permissoes, setPermissoes] = useState<PermissoesValues>(PERMISSOES_VAZIAS);
 
   if (state.convite) {
     return (
@@ -73,12 +80,38 @@ function ConvidarUsuarioForm({ onClose }: { onClose: () => void }) {
         <label htmlFor="papel" className={labelClass}>
           Papel
         </label>
-        <select id="papel" name="papel" required className={inputClass} defaultValue="equipe">
-          <option value="equipe">Equipe</option>
+        <select
+          id="papel"
+          name="papel"
+          required
+          className={inputClass}
+          value={papel}
+          onChange={(event) => setPapel(event.target.value as typeof papel)}
+        >
+          <option value="membro">Membro</option>
           <option value="dono">Dono</option>
           <option value="consultor">Consultor</option>
         </select>
       </div>
+
+      {papel === "membro" && (
+        <>
+          <div>
+            <label htmlFor="cargo" className={labelClass}>
+              Cargo
+            </label>
+            <input
+              id="cargo"
+              name="cargo"
+              type="text"
+              className={inputClass}
+              placeholder='Ex: "Vendedora", "Secretária", "Financeiro"'
+            />
+          </div>
+
+          <PermissoesFields value={permissoes} onChange={setPermissoes} />
+        </>
+      )}
 
       {state.error && (
         <p className="rounded-xl bg-warn-bg px-3 py-2 text-sm text-warn">{state.error}</p>

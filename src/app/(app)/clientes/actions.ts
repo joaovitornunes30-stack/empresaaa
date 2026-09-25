@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { comSessao, comSessaoSimples, type ActionState } from "@/lib/auth";
+import { type ActionState } from "@/lib/auth";
+import { comSessaoAba, comSessaoSimplesAba } from "@/lib/permissoes";
 
 export type { ActionState };
 
@@ -61,7 +62,7 @@ function lerClienteFormData(formData: FormData) {
   };
 }
 
-export const criarCliente = comSessao(["dono", "equipe"], async (ctx, _prevState, formData) => {
+export const criarCliente = comSessaoAba("clientes", async (ctx, _prevState, formData) => {
   const parsed = clienteSchema.safeParse(lerClienteFormData(formData));
 
   if (!parsed.success) {
@@ -78,7 +79,7 @@ const editarClienteSchema = clienteSchema.extend({
   id: z.string().trim().min(1),
 });
 
-export const editarCliente = comSessao(["dono", "equipe"], async (_ctx, _prevState, formData) => {
+export const editarCliente = comSessaoAba("clientes", async (_ctx, _prevState, formData) => {
   const parsed = editarClienteSchema.safeParse({
     ...lerClienteFormData(formData),
     id: formData.get("id"),
@@ -119,7 +120,7 @@ const observacoesSchema = z.object({
     .transform((value) => (value ? value : undefined)),
 });
 
-export const atualizarObservacoesCliente = comSessaoSimples(["dono", "equipe"], async (_ctx, formData) => {
+export const atualizarObservacoesCliente = comSessaoSimplesAba("clientes", async (_ctx, formData) => {
   const parsed = observacoesSchema.safeParse({
     id: formData.get("id"),
     observacoes: formData.get("observacoes") || undefined,

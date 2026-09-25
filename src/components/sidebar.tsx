@@ -2,25 +2,25 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { Papel } from "@/lib/tenant-context";
+import type { Aba } from "@/lib/permissoes";
 
 type NavItem = {
   label: string;
   href: string;
-  papeis: Papel[];
+  aba: Aba;
 };
 
 const NAV_ITEMS: NavItem[] = [
-  { label: "Análise", href: "/analise", papeis: ["dono", "consultor"] },
-  { label: "Produtos", href: "/produtos", papeis: ["dono", "equipe", "consultor"] },
-  { label: "Clientes", href: "/clientes", papeis: ["dono", "equipe", "consultor"] },
-  { label: "Financeiro", href: "/financeiro", papeis: ["dono", "consultor"] },
-  { label: "Retiradas", href: "/retiradas", papeis: ["dono", "consultor"] },
+  { label: "Análise", href: "/analise", aba: "analise" },
+  { label: "Produtos", href: "/produtos", aba: "produtos" },
+  { label: "Clientes", href: "/clientes", aba: "clientes" },
+  { label: "Financeiro", href: "/financeiro", aba: "financeiro" },
+  { label: "Retiradas", href: "/retiradas", aba: "retiradas" },
 ];
 
-export function Sidebar({ papel }: { papel: Papel }) {
+export function Sidebar({ abasPermitidas }: { abasPermitidas: Aba[] }) {
   const pathname = usePathname();
-  const itens = NAV_ITEMS.filter((item) => item.papeis.includes(papel));
+  const itens = NAV_ITEMS.filter((item) => abasPermitidas.includes(item.aba));
 
   return (
     <aside className="hidden w-60 shrink-0 flex-col border-r border-border bg-surface px-4 py-6 sm:flex">

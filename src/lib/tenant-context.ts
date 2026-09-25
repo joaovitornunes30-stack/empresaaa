@@ -1,6 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 
-export type Papel = "dono" | "equipe" | "consultor";
+export type Papel = "dono" | "membro" | "consultor";
 
 export type TenantContext = {
   usuarioId: string;

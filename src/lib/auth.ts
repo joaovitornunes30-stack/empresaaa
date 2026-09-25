@@ -63,7 +63,7 @@ export async function lerSessao(): Promise<SessionPayload | null> {
  * `papeisPermitidos` for informado e o papel atual não estiver na lista.
  * Não estabelece o contexto de tenant sozinho — combine com runWithTenant:
  *
- *   const sessao = await exigirSessaoPagina(["dono", "equipe"]);
+ *   const sessao = await exigirSessaoPagina(["dono", "membro"]);
  *   return runWithTenant(sessao, async () => { ...consultas prisma... });
  */
 export async function exigirSessaoPagina(papeisPermitidos?: Papel[]): Promise<TenantContext> {

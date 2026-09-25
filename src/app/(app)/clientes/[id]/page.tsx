@@ -6,7 +6,7 @@ import { formatarData, formatarMoeda } from "@/lib/financeiro";
 import { HistoricoVendasTable } from "@/components/clientes/historico-vendas-table";
 import { EditarClienteButton } from "@/components/clientes/novo-cliente-button";
 import { AcaoClienteButton } from "@/components/clientes/acao-cliente-button";
-import { exigirSessaoPagina } from "@/lib/auth";
+import { exigirSessaoAba } from "@/lib/permissoes";
 import { runWithTenant } from "@/lib/tenant-context";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 export default async function ClienteDetalhePage(
   props: PageProps<"/clientes/[id]">,
 ) {
-  const sessao = await exigirSessaoPagina(["dono", "equipe", "consultor"]);
+  const sessao = await exigirSessaoAba("clientes");
   const { id } = await props.params;
   return runWithTenant(sessao, () =>
     ClienteDetalhePageConteudo(id, sessao.clinicaId, sessao.papel === "consultor"),
@@ -41,7 +41,7 @@ async function ClienteDetalhePageConteudo(id: string, clinicaId: string, somente
     prisma.produto.findMany({ select: { id: true, nome: true }, orderBy: { nome: "asc" } }),
     prisma.cliente.findMany({ select: { id: true, nome: true }, orderBy: { nome: "asc" } }),
     prisma.usuario.findMany({
-      where: { clinicaId, ativo: true, papel: { in: ["dono", "equipe"] } },
+      where: { clinicaId, ativo: true, papel: { in: ["dono", "membro"] } },
       select: { id: true, nome: true },
       orderBy: { nome: "asc" },
     }),

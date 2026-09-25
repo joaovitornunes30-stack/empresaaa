@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { adicionarMeses, calcularValoresParcelas } from "@/lib/financeiro";
-import { comSessao, comSessaoSimples, type ActionState } from "@/lib/auth";
+import { comSessao, type ActionState } from "@/lib/auth";
+import { buscarPermissoesMembro, comSessaoAba, comSessaoSimplesAba } from "@/lib/permissoes";
 
 export type { ActionState };
 
@@ -63,7 +64,7 @@ const entradaSaidaSchema = z
     },
   );
 
-export const criarEntradaSaida = comSessao(["dono", "equipe"], async (ctx, _prevState, formData) => {
+export const criarEntradaSaida = comSessao(["dono", "membro"], async (ctx, _prevState, formData) => {
   const parsed = entradaSaidaSchema.safeParse({
     tipo: formData.get("tipo"),
     categoria: formData.get("categoria"),
@@ -102,10 +103,20 @@ export const criarEntradaSaida = comSessao(["dono", "equipe"], async (ctx, _prev
     numeroParcelas,
   } = parsed.data;
 
-  // "equipe" pode registrar vendas (usado também na tela de Clientes), mas
-  // não tem acesso a Financeiro — sem permissão para lançar saídas/despesas.
-  if (ctx.papel === "equipe" && tipo !== "entrada") {
-    return { error: "Você não tem permissão para registrar saídas." };
+  // Um "membro" só lança saídas se tiver a permissão Financeiro; sem ela,
+  // ainda pode registrar vendas (entrada) se tiver permissão de Clientes —
+  // é o fluxo usado pela tela de Clientes para fechar uma venda.
+  if (ctx.papel === "membro") {
+    const permissoes = await buscarPermissoesMembro(ctx.usuarioId);
+    const podeFinanceiro = !!permissoes?.acessaFinanceiro;
+    const podeClientes = !!permissoes?.acessaClientes;
+
+    if (tipo !== "entrada" && !podeFinanceiro) {
+      return { error: "Você não tem permissão para registrar saídas." };
+    }
+    if (tipo === "entrada" && !podeFinanceiro && !podeClientes) {
+      return { error: "Você não tem permissão para registrar entradas." };
+    }
   }
 
   const produtoVendidoId = tipo === "entrada" ? produtoId : undefined;
@@ -269,7 +280,7 @@ const dividaSchema = z
     path: ["numeroParcelas"],
   });
 
-export const criarDivida = comSessao(["dono"], async (ctx, _prevState, formData) => {
+export const criarDivida = comSessaoAba("financeiro", async (ctx, _prevState, formData) => {
   const parsed = dividaSchema.safeParse({
     valor: formData.get("valor"),
     dataVencimento: formData.get("dataVencimento"),
@@ -333,7 +344,7 @@ const ativarPagamentoSchema = z.object({
     .optional(),
 });
 
-export const ativarPagamentoDivida = comSessao(["dono"], async (ctx, _prevState, formData) => {
+export const ativarPagamentoDivida = comSessaoAba("financeiro", async (ctx, _prevState, formData) => {
   const parsed = ativarPagamentoSchema.safeParse({
     id: formData.get("id"),
     numeroParcelas: formData.get("numeroParcelas"),
@@ -381,7 +392,7 @@ const metaLucroSchema = z.object({
   valor: z.coerce.number().positive("Valor deve ser maior que zero."),
 });
 
-export const definirMetaLucro = comSessao(["dono"], async (ctx, _prevState, formData) => {
+export const definirMetaLucro = comSessaoAba("financeiro", async (ctx, _prevState, formData) => {
   const parsed = metaLucroSchema.safeParse({
     mes: formData.get("mes"),
     valor: formData.get("valor"),
@@ -403,7 +414,7 @@ export const definirMetaLucro = comSessao(["dono"], async (ctx, _prevState, form
   return { error: null };
 });
 
-export const marcarParcelaPaga = comSessaoSimples(["dono"], async (_ctx, formData) => {
+export const marcarParcelaPaga = comSessaoSimplesAba("financeiro", async (_ctx, formData) => {
   const id = z.string().trim().min(1).parse(formData.get("id"));
 
   await prisma.parcela.update({
@@ -454,7 +465,7 @@ async function validarUsuarioParaFuncionario(
   return { ok: true, usuarioId: usuario.id };
 }
 
-export const criarFuncionario = comSessao(["dono"], async (ctx, _prevState, formData) => {
+export const criarFuncionario = comSessaoAba("financeiro", async (ctx, _prevState, formData) => {
   const parsed = funcionarioSchema.safeParse({
     nome: formData.get("nome"),
     tipoContrato: formData.get("tipoContrato"),
@@ -490,7 +501,7 @@ const editarFuncionarioSchema = funcionarioSchema.extend({
   id: z.string().trim().min(1),
 });
 
-export const editarFuncionario = comSessao(["dono"], async (ctx, _prevState, formData) => {
+export const editarFuncionario = comSessaoAba("financeiro", async (ctx, _prevState, formData) => {
   const parsed = editarFuncionarioSchema.safeParse({
     id: formData.get("id"),
     nome: formData.get("nome"),
@@ -523,7 +534,7 @@ export const editarFuncionario = comSessao(["dono"], async (ctx, _prevState, for
   return { error: null };
 });
 
-export const alternarAtivoFuncionario = comSessaoSimples(["dono"], async (_ctx, formData) => {
+export const alternarAtivoFuncionario = comSessaoSimplesAba("financeiro", async (_ctx, formData) => {
   const id = z.string().trim().min(1).parse(formData.get("id"));
 
   const funcionario = await prisma.funcionario.findUnique({ where: { id }, select: { ativo: true } });
@@ -558,7 +569,7 @@ const despesaAdministrativaSchema = z
     path: ["data"],
   });
 
-export const criarDespesaAdministrativa = comSessao(["dono"], async (ctx, _prevState, formData) => {
+export const criarDespesaAdministrativa = comSessaoAba("financeiro", async (ctx, _prevState, formData) => {
   const parsed = despesaAdministrativaSchema.safeParse({
     nome: formData.get("nome"),
     valor: formData.get("valor"),
@@ -610,8 +621,8 @@ export const criarDespesaAdministrativa = comSessao(["dono"], async (ctx, _prevS
   return { error: null };
 });
 
-export const alternarAtivoDespesaAdministrativa = comSessaoSimples(
-  ["dono"],
+export const alternarAtivoDespesaAdministrativa = comSessaoSimplesAba(
+  "financeiro",
   async (_ctx, formData) => {
     const id = z.string().trim().min(1).parse(formData.get("id"));
 
@@ -628,8 +639,8 @@ export const alternarAtivoDespesaAdministrativa = comSessaoSimples(
   },
 );
 
-export const marcarDespesaAdministrativaPaga = comSessaoSimples(
-  ["dono"],
+export const marcarDespesaAdministrativaPaga = comSessaoSimplesAba(
+  "financeiro",
   async (_ctx, formData) => {
     const id = z.string().trim().min(1).parse(formData.get("id"));
 
@@ -652,8 +663,8 @@ const editarValorLancamentoGeradoSchema = z.object({
  * ocorrência específica, e a sincronização nunca recria/sobrescreve um
  * lançamento já existente para o período.
  */
-export const editarValorLancamentoGerado = comSessao(
-  ["dono"],
+export const editarValorLancamentoGerado = comSessaoAba(
+  "financeiro",
   async (_ctx, _prevState, formData) => {
     const parsed = editarValorLancamentoGeradoSchema.safeParse({
       id: formData.get("id"),

@@ -15,13 +15,13 @@ import { DividasManager } from "@/components/financeiro/dividas-manager";
 import { TodasDividasTable } from "@/components/financeiro/todas-dividas-table";
 import { FuncionariosManager } from "@/components/financeiro/funcionarios-manager";
 import { DespesasAdministrativasManager } from "@/components/financeiro/despesas-administrativas-manager";
-import { exigirSessaoPagina } from "@/lib/auth";
+import { exigirSessaoAba } from "@/lib/permissoes";
 import { runWithTenant } from "@/lib/tenant-context";
 
 export const dynamic = "force-dynamic";
 
 export default async function FinanceiroPage(props: PageProps<"/financeiro">) {
-  const sessao = await exigirSessaoPagina(["dono", "consultor"]);
+  const sessao = await exigirSessaoAba("financeiro");
   const searchParams = await props.searchParams;
   return runWithTenant(sessao, () =>
     FinanceiroPageConteudo(searchParams, sessao.papel === "consultor", sessao.clinicaId),

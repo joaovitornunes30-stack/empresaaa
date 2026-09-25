@@ -33,16 +33,20 @@ model Clinica {
   despesasAdministrativas DespesaAdministrativa[]
 }
 
-// "dono": acesso total à própria clínica. "equipe": acesso restrito
-// (Clientes/Produtos, sem Financeiro/Análise/Retiradas). "consultor": acesso
-// somente leitura a qualquer clínica listada em ConsultorAcesso — não
-// pertence a uma clínica fixa, por isso clinicaId é nulo.
+// "dono": acesso total à própria clínica, fixo, não editável. "membro":
+// permissões customizadas por aba (ver PermissaoUsuario) — cargo é texto
+// livre, só relevante para este papel. "consultor": acesso somente leitura a
+// qualquer clínica listada em ConsultorAcesso — não pertence a uma clínica
+// fixa, por isso clinicaId é nulo.
 model Usuario {
   id        String   @id @default(cuid())
   nome      String
   email     String   @unique
   senhaHash String
   papel     String
+  // Texto livre (ex: "Vendedora", "Secretária", "Financeiro") — só
+  // preenchido/relevante quando papel="membro".
+  cargo     String?
   ativo     Boolean  @default(true)
   clinicaId String?
   clinica   Clinica? @relation(fields: [clinicaId], references: [id])
@@ -54,6 +58,26 @@ model Usuario {
   // Presente quando este usuário também é um Funcionario cadastrado (tem
   // acesso ao sistema além de constar na folha).
   funcionario      Funcionario?
+  // Permissões granulares por aba — só existe (e só é consultada) quando
+  // papel="membro". dono/consultor têm seu acesso resolvido sem esta tabela.
+  permissoes       PermissaoUsuario?
+}
+
+// Permissões granulares de um Usuario com papel="membro", uma aba por
+// coluna. acessaFinanceiroRetiradas só tem efeito quando acessaFinanceiro
+// também é true (Retiradas é um dado sensível dentro do próprio Financeiro).
+model PermissaoUsuario {
+  id                        String  @id @default(cuid())
+  usuarioId                 String  @unique
+  usuario                   Usuario @relation(fields: [usuarioId], references: [id])
+  acessaProdutos            Boolean @default(false)
+  acessaClientes            Boolean @default(false)
+  acessaFinanceiro          Boolean @default(false)
+  acessaFinanceiroRetiradas Boolean @default(false)
+  acessaAnalise             Boolean @default(false)
+  // Concede acesso à tela Equipe (ver colegas, sem poder convidar/alterar
+  // permissões — isso continua exclusivo do dono).
+  acessaEquipe              Boolean @default(false)
 }
 
 // Um registro por acesso de um "consultor" a uma clínica — a própria

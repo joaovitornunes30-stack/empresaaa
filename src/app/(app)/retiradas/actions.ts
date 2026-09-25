@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { comSessao, type ActionState } from "@/lib/auth";
+import { type ActionState } from "@/lib/auth";
+import { comSessaoAba } from "@/lib/permissoes";
 
 export type { ActionState };
 
@@ -17,7 +18,7 @@ const retiradaSchema = z.object({
     .transform((value) => (value ? value : undefined)),
 });
 
-export const criarRetirada = comSessao(["dono"], async (ctx, _prevState, formData) => {
+export const criarRetirada = comSessaoAba("retiradas", async (ctx, _prevState, formData) => {
   const parsed = retiradaSchema.safeParse({
     valor: formData.get("valor"),
     data: formData.get("data"),

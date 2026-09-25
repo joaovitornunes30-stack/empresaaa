@@ -12,10 +12,47 @@ export type ConvidarState = {
   convite: { nome: string; email: string; senhaTemporaria: string | null } | null;
 };
 
+const permissoesFormShape = {
+  acessaProdutos: z.boolean(),
+  acessaClientes: z.boolean(),
+  acessaFinanceiro: z.boolean(),
+  acessaFinanceiroRetiradas: z.boolean(),
+  acessaAnalise: z.boolean(),
+  acessaEquipe: z.boolean(),
+};
+
+/** Checkboxes só chegam no FormData quando marcados ("on") — nunca "off". */
+function lerPermissoesFormData(formData: FormData) {
+  return {
+    acessaProdutos: formData.get("acessaProdutos") === "on",
+    acessaClientes: formData.get("acessaClientes") === "on",
+    acessaFinanceiro: formData.get("acessaFinanceiro") === "on",
+    acessaFinanceiroRetiradas: formData.get("acessaFinanceiroRetiradas") === "on",
+    acessaAnalise: formData.get("acessaAnalise") === "on",
+    acessaEquipe: formData.get("acessaEquipe") === "on",
+  };
+}
+
+/** acessaFinanceiroRetiradas só faz sentido (e só é persistido) junto com acessaFinanceiro. */
+function normalizarPermissoes<T extends { acessaFinanceiro: boolean; acessaFinanceiroRetiradas: boolean }>(
+  permissoes: T,
+) {
+  return {
+    ...permissoes,
+    acessaFinanceiroRetiradas: permissoes.acessaFinanceiro && permissoes.acessaFinanceiroRetiradas,
+  };
+}
+
 const convidarSchema = z.object({
   nome: z.string().trim().min(1, "Informe o nome."),
   email: z.string().trim().toLowerCase().email("Informe um e-mail válido."),
-  papel: z.enum(["dono", "equipe", "consultor"], { error: "Selecione um papel." }),
+  papel: z.enum(["dono", "membro", "consultor"], { error: "Selecione um papel." }),
+  cargo: z
+    .string()
+    .trim()
+    .optional()
+    .transform((value) => (value ? value : undefined)),
+  ...permissoesFormShape,
 });
 
 export const convidarUsuario = comSessao<ConvidarState>(["dono"], async (ctx, _prevState, formData) => {
@@ -23,13 +60,15 @@ export const convidarUsuario = comSessao<ConvidarState>(["dono"], async (ctx, _p
     nome: formData.get("nome"),
     email: formData.get("email"),
     papel: formData.get("papel"),
+    cargo: formData.get("cargo") || undefined,
+    ...lerPermissoesFormData(formData),
   });
 
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Dados inválidos.", convite: null };
   }
 
-  const { nome, email, papel } = parsed.data;
+  const { nome, email, papel, cargo, ...permissoesBrutas } = parsed.data;
   const existente = await prisma.usuario.findUnique({ where: { email } });
 
   if (papel === "consultor" && existente?.papel === "consultor") {
@@ -56,6 +95,19 @@ export const convidarUsuario = comSessao<ConvidarState>(["dono"], async (ctx, _p
     await prisma.consultorAcesso.create({
       data: { usuarioId: usuario.id, clinicaId: ctx.clinicaId },
     });
+  } else if (papel === "membro") {
+    const permissoes = normalizarPermissoes(permissoesBrutas);
+    await prisma.usuario.create({
+      data: {
+        nome,
+        email,
+        senhaHash,
+        papel,
+        cargo,
+        clinicaId: ctx.clinicaId,
+        permissoes: { create: permissoes },
+      },
+    });
   } else {
     await prisma.usuario.create({
       data: { nome, email, senhaHash, papel, clinicaId: ctx.clinicaId },
@@ -66,12 +118,59 @@ export const convidarUsuario = comSessao<ConvidarState>(["dono"], async (ctx, _p
   return { error: null, convite: { nome, email, senhaTemporaria } };
 });
 
-const alterarPapelSchema = z.object({
+const editarPermissoesSchema = z.object({
   id: z.string().trim().min(1),
-  papel: z.enum(["dono", "equipe"], { error: "Selecione um papel." }),
+  cargo: z
+    .string()
+    .trim()
+    .optional()
+    .transform((value) => (value ? value : undefined)),
+  ...permissoesFormShape,
 });
 
-// Só troca entre "dono"/"equipe" — mudar alguém já cadastrado na clínica
+/**
+ * Edita cargo + permissões de um membro já cadastrado — exclusivo do dono
+ * (a edição em si, diferente da simples visualização da tela Equipe que
+ * acessaEquipe já permite a um membro).
+ */
+export const editarPermissoesUsuario = comSessao(["dono"], async (ctx, _prevState, formData) => {
+  const parsed = editarPermissoesSchema.safeParse({
+    id: formData.get("id"),
+    cargo: formData.get("cargo") || undefined,
+    ...lerPermissoesFormData(formData),
+  });
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
+  }
+
+  const { id, cargo, ...permissoesBrutas } = parsed.data;
+
+  const usuario = await prisma.usuario.findFirst({ where: { id, clinicaId: ctx.clinicaId } });
+  if (!usuario) return { error: "Usuário não encontrado." };
+  if (usuario.papel !== "membro") {
+    return { error: "Só é possível definir permissões para membros da equipe." };
+  }
+
+  const permissoes = normalizarPermissoes(permissoesBrutas);
+
+  await prisma.usuario.update({ where: { id }, data: { cargo: cargo ?? null } });
+  await prisma.permissaoUsuario.upsert({
+    where: { usuarioId: id },
+    create: { usuarioId: id, ...permissoes },
+    update: permissoes,
+  });
+
+  revalidatePath("/equipe");
+  return { error: null };
+});
+
+const alterarPapelSchema = z.object({
+  id: z.string().trim().min(1),
+  papel: z.enum(["dono", "membro"], { error: "Selecione um papel." }),
+});
+
+// Só troca entre "dono"/"membro" — mudar alguém já cadastrado na clínica
 // para "consultor" mudaria o modelo do usuário inteiro (clinicaId fixo vs.
 // múltiplas clínicas via ConsultorAcesso); fora do escopo desta tela.
 export const alterarPapelUsuario = comSessao(["dono"], async (ctx, _prevState, formData) => {

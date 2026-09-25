@@ -2,6 +2,8 @@
 
 import { useActionState, useRef } from "react";
 import { alterarPapelUsuario, alternarAtivoUsuario, type ActionState } from "@/app/(app)/equipe/actions";
+import { EditarPermissoesButton } from "@/components/equipe/editar-permissoes-button";
+import type { PermissoesValues } from "@/components/equipe/permissoes-fields";
 
 const initialState: ActionState = { error: null };
 
@@ -10,12 +12,14 @@ type Usuario = {
   nome: string;
   email: string;
   papel: string;
+  cargo: string | null;
   ativo: boolean;
+  permissoes: PermissoesValues | null;
 };
 
 const PAPEL_LABEL: Record<string, string> = {
   dono: "Dono",
-  equipe: "Equipe",
+  membro: "Membro",
   consultor: "Consultor",
 };
 
@@ -36,7 +40,7 @@ function PapelSelect({ usuario, souEuMesmo }: { usuario: Usuario; souEuMesmo: bo
         onChange={(event) => event.target.form?.requestSubmit()}
         className="rounded-lg border border-border bg-background px-2 py-1 text-sm text-foreground outline-none focus:border-primary"
       >
-        <option value="equipe">Equipe</option>
+        <option value="membro">Membro</option>
         <option value="dono">Dono</option>
       </select>
       {state.error && <span className="text-xs text-warn">{state.error}</span>}
@@ -65,9 +69,11 @@ function AtivoToggle({ usuario, souEuMesmo }: { usuario: Usuario; souEuMesmo: bo
 export function EquipeTable({
   usuarios,
   usuarioAtualId,
+  podeGerenciar,
 }: {
   usuarios: Usuario[];
   usuarioAtualId: string;
+  podeGerenciar: boolean;
 }) {
   if (usuarios.length === 0) {
     return (
@@ -96,11 +102,18 @@ export function EquipeTable({
               <tr key={usuario.id} className="border-b border-border last:border-0">
                 <td className="px-5 py-3 font-medium text-foreground">
                   {usuario.nome}
+                  {usuario.cargo && (
+                    <span className="text-foreground/50"> — {usuario.cargo}</span>
+                  )}
                   {souEuMesmo && <span className="ml-1.5 text-xs text-foreground/40">(você)</span>}
                 </td>
                 <td className="px-5 py-3 text-foreground/70">{usuario.email}</td>
                 <td className="px-5 py-3">
-                  <PapelSelect usuario={usuario} souEuMesmo={souEuMesmo} />
+                  {podeGerenciar ? (
+                    <PapelSelect usuario={usuario} souEuMesmo={souEuMesmo} />
+                  ) : (
+                    <span className="text-sm text-foreground/70">{PAPEL_LABEL[usuario.papel]}</span>
+                  )}
                 </td>
                 <td className="px-5 py-3">
                   <span
@@ -112,7 +125,14 @@ export function EquipeTable({
                   </span>
                 </td>
                 <td className="px-5 py-3 text-right">
-                  <AtivoToggle usuario={usuario} souEuMesmo={souEuMesmo} />
+                  {podeGerenciar && (
+                    <div className="flex items-center justify-end gap-3">
+                      {usuario.papel === "membro" && (
+                        <EditarPermissoesButton usuario={usuario} />
+                      )}
+                      <AtivoToggle usuario={usuario} souEuMesmo={souEuMesmo} />
+                    </div>
+                  )}
                 </td>
               </tr>
             );
