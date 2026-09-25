@@ -23,6 +23,8 @@ const MODELOS_COM_CLINICA = new Set([
   "MetaDoMes",
   "MetaLucroMensal",
   "Retirada",
+  "Funcionario",
+  "DespesaAdministrativa",
 ]);
 
 // Operações cujo filtro de leitura/alvo fica em `where`.

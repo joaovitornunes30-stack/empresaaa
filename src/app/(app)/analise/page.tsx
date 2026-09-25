@@ -40,6 +40,7 @@ import { ComparativoMensalChart } from "@/components/analise/comparativo-mensal-
 import { ResumoDoMes } from "@/components/analise/resumo-do-mes";
 import { exigirSessaoPagina } from "@/lib/auth";
 import { runWithTenant } from "@/lib/tenant-context";
+import { sincronizarLancamentosRecorrentes } from "@/lib/folha";
 
 export const dynamic = "force-dynamic";
 
@@ -49,6 +50,8 @@ export default async function AnalisePage() {
 }
 
 async function AnalisePageConteudo(somenteLeitura: boolean) {
+  if (!somenteLeitura) await sincronizarLancamentosRecorrentes();
+
   const hoje = new Date();
   const mes = mesAtual(hoje);
   const { inicio, fim } = limitesDoMes(mes);

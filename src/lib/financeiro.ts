@@ -152,6 +152,13 @@ export function calcularValoresParcelas(valorTotal: number, numeroParcelas: numb
   return valores;
 }
 
+export const FREQUENCIA_LABEL: Record<string, string> = {
+  semanal: "Semanal",
+  quinzenal: "Quinzenal",
+  mensal: "Mensal",
+  "60dias": "A cada 60 dias",
+};
+
 export const PRAZO_LABEL: Record<Prazo, string> = {
   curto: "Curto prazo (até 30 dias)",
   medio: "Médio prazo (31–120 dias)",

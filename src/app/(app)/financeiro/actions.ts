@@ -413,3 +413,271 @@ export const marcarParcelaPaga = comSessaoSimples(["dono"], async (_ctx, formDat
 
   revalidatePath("/financeiro");
 });
+
+const funcionarioSchema = z.object({
+  nome: z.string().trim().min(1, "Informe o nome."),
+  tipoContrato: z.enum(["CLT", "PJ"], { error: "Selecione o tipo de contrato." }),
+  valorMensal: z.coerce.number().positive("Valor mensal deve ser maior que zero."),
+  usuarioId: z
+    .string()
+    .trim()
+    .optional()
+    .transform((value) => (value ? value : undefined)),
+});
+
+/**
+ * Confirma que `usuarioId` pertence à própria clínica e ainda não está
+ * vinculado a outro Funcionario (a coluna é @unique) — o select da UI já só
+ * lista candidatos válidos, mas o formulário chega como campo comum.
+ */
+async function validarUsuarioParaFuncionario(
+  usuarioId: string | undefined,
+  clinicaId: string,
+  funcionarioId?: string,
+): Promise<{ ok: true; usuarioId: string | undefined } | { ok: false; error: string }> {
+  if (!usuarioId) return { ok: true, usuarioId: undefined };
+
+  const usuario = await prisma.usuario.findFirst({
+    where: { id: usuarioId, clinicaId },
+    select: { id: true },
+  });
+  if (!usuario) return { ok: false, error: "Usuário selecionado inválido." };
+
+  const vinculadoAOutro = await prisma.funcionario.findFirst({
+    where: { usuarioId, ...(funcionarioId ? { id: { not: funcionarioId } } : {}) },
+    select: { id: true },
+  });
+  if (vinculadoAOutro) {
+    return { ok: false, error: "Este usuário já está vinculado a outro funcionário." };
+  }
+
+  return { ok: true, usuarioId: usuario.id };
+}
+
+export const criarFuncionario = comSessao(["dono"], async (ctx, _prevState, formData) => {
+  const parsed = funcionarioSchema.safeParse({
+    nome: formData.get("nome"),
+    tipoContrato: formData.get("tipoContrato"),
+    valorMensal: formData.get("valorMensal"),
+    usuarioId: formData.get("usuarioId") || undefined,
+  });
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
+  }
+
+  const { nome, tipoContrato, valorMensal, usuarioId } = parsed.data;
+
+  const usuarioValidado = await validarUsuarioParaFuncionario(usuarioId, ctx.clinicaId);
+  if (!usuarioValidado.ok) return { error: usuarioValidado.error };
+
+  await prisma.funcionario.create({
+    data: {
+      nome,
+      tipoContrato,
+      valorMensal,
+      usuarioId: usuarioValidado.usuarioId,
+      clinicaId: ctx.clinicaId,
+    },
+  });
+
+  revalidatePath("/financeiro");
+  revalidatePath("/analise");
+  return { error: null };
+});
+
+const editarFuncionarioSchema = funcionarioSchema.extend({
+  id: z.string().trim().min(1),
+});
+
+export const editarFuncionario = comSessao(["dono"], async (ctx, _prevState, formData) => {
+  const parsed = editarFuncionarioSchema.safeParse({
+    id: formData.get("id"),
+    nome: formData.get("nome"),
+    tipoContrato: formData.get("tipoContrato"),
+    valorMensal: formData.get("valorMensal"),
+    usuarioId: formData.get("usuarioId") || undefined,
+  });
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
+  }
+
+  const { id, nome, tipoContrato, valorMensal, usuarioId } = parsed.data;
+
+  const usuarioValidado = await validarUsuarioParaFuncionario(usuarioId, ctx.clinicaId, id);
+  if (!usuarioValidado.ok) return { error: usuarioValidado.error };
+
+  await prisma.funcionario.update({
+    where: { id },
+    data: {
+      nome,
+      tipoContrato,
+      valorMensal,
+      usuarioId: usuarioValidado.usuarioId ?? null,
+    },
+  });
+
+  revalidatePath("/financeiro");
+  revalidatePath("/analise");
+  return { error: null };
+});
+
+export const alternarAtivoFuncionario = comSessaoSimples(["dono"], async (_ctx, formData) => {
+  const id = z.string().trim().min(1).parse(formData.get("id"));
+
+  const funcionario = await prisma.funcionario.findUnique({ where: { id }, select: { ativo: true } });
+  if (!funcionario) return;
+
+  await prisma.funcionario.update({ where: { id }, data: { ativo: !funcionario.ativo } });
+
+  revalidatePath("/financeiro");
+  revalidatePath("/analise");
+});
+
+const despesaAdministrativaSchema = z
+  .object({
+    nome: z.string().trim().min(1, "Informe o nome."),
+    valor: z.coerce.number().positive("Valor deve ser maior que zero."),
+    recorrente: z.coerce.boolean().optional(),
+    frequencia: z.enum(["semanal", "quinzenal", "mensal", "60dias"]).optional(),
+    dataInicio: z.coerce.date({ error: "Informe uma data de início válida." }).optional(),
+    data: z.coerce.date({ error: "Informe uma data válida." }).optional(),
+    status: z.enum(["pago", "pendente"]).default("pendente"),
+  })
+  .refine((d) => !d.recorrente || !!d.frequencia, {
+    message: "Selecione a frequência.",
+    path: ["frequencia"],
+  })
+  .refine((d) => !d.recorrente || !!d.dataInicio, {
+    message: "Informe a data de início.",
+    path: ["dataInicio"],
+  })
+  .refine((d) => d.recorrente || !!d.data, {
+    message: "Informe a data.",
+    path: ["data"],
+  });
+
+export const criarDespesaAdministrativa = comSessao(["dono"], async (ctx, _prevState, formData) => {
+  const parsed = despesaAdministrativaSchema.safeParse({
+    nome: formData.get("nome"),
+    valor: formData.get("valor"),
+    recorrente: formData.get("recorrente") === "on",
+    frequencia: formData.get("frequencia") || undefined,
+    dataInicio: formData.get("dataInicio") || undefined,
+    data: formData.get("data") || undefined,
+    status: formData.get("status") || undefined,
+  });
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
+  }
+
+  const { nome, valor, recorrente, frequencia, dataInicio, data, status } = parsed.data;
+
+  const despesa = await prisma.despesaAdministrativa.create({
+    data: {
+      nome,
+      valor,
+      recorrente: !!recorrente,
+      frequencia: recorrente ? frequencia : undefined,
+      dataInicio: recorrente ? dataInicio : undefined,
+      data: recorrente ? undefined : data,
+      status: recorrente ? "pendente" : status,
+      clinicaId: ctx.clinicaId,
+    },
+  });
+
+  // Avulsa: gera o único EntradaSaida já na criação, na data informada. A
+  // recorrente é gerada sob demanda por sincronizarLancamentosRecorrentes
+  // (lib/folha.ts), a cada intervalo a partir de dataInicio.
+  if (!recorrente && data) {
+    await prisma.entradaSaida.create({
+      data: {
+        tipo: "saida",
+        categoria: "Despesa Administrativa",
+        valor,
+        data,
+        descricao: nome,
+        despesaAdministrativaId: despesa.id,
+        clinicaId: ctx.clinicaId,
+      },
+    });
+  }
+
+  revalidatePath("/financeiro");
+  revalidatePath("/analise");
+  return { error: null };
+});
+
+export const alternarAtivoDespesaAdministrativa = comSessaoSimples(
+  ["dono"],
+  async (_ctx, formData) => {
+    const id = z.string().trim().min(1).parse(formData.get("id"));
+
+    const despesa = await prisma.despesaAdministrativa.findUnique({
+      where: { id },
+      select: { ativo: true },
+    });
+    if (!despesa) return;
+
+    await prisma.despesaAdministrativa.update({ where: { id }, data: { ativo: !despesa.ativo } });
+
+    revalidatePath("/financeiro");
+    revalidatePath("/analise");
+  },
+);
+
+export const marcarDespesaAdministrativaPaga = comSessaoSimples(
+  ["dono"],
+  async (_ctx, formData) => {
+    const id = z.string().trim().min(1).parse(formData.get("id"));
+
+    await prisma.despesaAdministrativa.update({ where: { id }, data: { status: "pago" } });
+
+    revalidatePath("/financeiro");
+    revalidatePath("/analise");
+  },
+);
+
+const editarValorLancamentoGeradoSchema = z.object({
+  id: z.string().trim().min(1),
+  valor: z.coerce.number().positive("Valor deve ser maior que zero."),
+});
+
+/**
+ * Edita pontualmente o valor de um lançamento gerado automaticamente
+ * (funcionarioId ou despesaAdministrativaId preenchido), sem alterar o
+ * valorMensal/valor cadastrado na base — a edição vale só para aquela
+ * ocorrência específica, e a sincronização nunca recria/sobrescreve um
+ * lançamento já existente para o período.
+ */
+export const editarValorLancamentoGerado = comSessao(
+  ["dono"],
+  async (_ctx, _prevState, formData) => {
+    const parsed = editarValorLancamentoGeradoSchema.safeParse({
+      id: formData.get("id"),
+      valor: formData.get("valor"),
+    });
+
+    if (!parsed.success) {
+      return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
+    }
+
+    const { id, valor } = parsed.data;
+
+    const lancamento = await prisma.entradaSaida.findFirst({
+      where: { id, OR: [{ funcionarioId: { not: null } }, { despesaAdministrativaId: { not: null } }] },
+      select: { id: true },
+    });
+    if (!lancamento) {
+      return { error: "Lançamento não encontrado ou não é gerado automaticamente." };
+    }
+
+    await prisma.entradaSaida.update({ where: { id }, data: { valor } });
+
+    revalidatePath("/financeiro");
+    revalidatePath("/analise");
+    return { error: null };
+  },
+);

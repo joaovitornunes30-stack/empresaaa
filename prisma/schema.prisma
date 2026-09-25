@@ -15,20 +15,22 @@ model Clinica {
   nome      String
   createdAt DateTime @default(now())
 
-  usuarios          Usuario[]
-  consultorAcessos  ConsultorAcesso[]
-  perfisTributarios PerfilTributario[]
-  produtos          Produto[]
-  entradasSaida     EntradaSaida[]
-  parcelas          Parcela[]
-  dividas           Divida[]
-  estoqueMovimentos EstoqueMovimento[]
-  clientes          Cliente[]
-  planos            Plano[]
-  planoModelos      PlanoModelo[]
-  metasDoMes        MetaDoMes[]
-  metasLucroMensal  MetaLucroMensal[]
-  retiradas         Retirada[]
+  usuarios                Usuario[]
+  consultorAcessos        ConsultorAcesso[]
+  perfisTributarios       PerfilTributario[]
+  produtos                Produto[]
+  entradasSaida           EntradaSaida[]
+  parcelas                Parcela[]
+  dividas                 Divida[]
+  estoqueMovimentos       EstoqueMovimento[]
+  clientes                Cliente[]
+  planos                  Plano[]
+  planoModelos            PlanoModelo[]
+  metasDoMes              MetaDoMes[]
+  metasLucroMensal        MetaLucroMensal[]
+  retiradas               Retirada[]
+  funcionarios            Funcionario[]
+  despesasAdministrativas DespesaAdministrativa[]
 }
 
 // "dono": acesso total à própria clínica. "equipe": acesso restrito
@@ -49,6 +51,9 @@ model Usuario {
   consultorAcessos ConsultorAcesso[]
   // Vendas (EntradaSaida) em que este usuário está marcado como quem fechou.
   vendasFechadas   EntradaSaida[]    @relation("FechadoPor")
+  // Presente quando este usuário também é um Funcionario cadastrado (tem
+  // acesso ao sistema além de constar na folha).
+  funcionario      Funcionario?
 }
 
 // Um registro por acesso de um "consultor" a uma clínica — a própria
@@ -118,39 +123,104 @@ model ProtocoloItem {
 }
 
 model EntradaSaida {
-  id                  String    @id @default(cuid())
-  tipo                String // "entrada" ou "saida"
-  categoria           String // ex: "Material", "Aluguel", "Midia", "Salario", livre
-  valor               Float
-  data                DateTime
-  descricao           String?
+  id                      String                 @id @default(cuid())
+  tipo                    String // "entrada" ou "saida"
+  categoria               String // ex: "Material", "Aluguel", "Midia", "Salario", livre
+  valor                   Float
+  data                    DateTime
+  descricao               String?
   // Preenchido quando categoria = "Prestador de Serviço".
-  nomePrestador       String?
-  parcelas            Parcela[]
+  nomePrestador           String?
+  parcelas                Parcela[]
   // Presente quando este registro foi gerado automaticamente para uma
   // parcela mensal de uma Divida marcada como "em_pagamento". Cada parcela
   // mensal vira o seu próprio EntradaSaida (valor = valorParcela daquele
   // mês), nunca o valor total da dívida.
-  dividaId            String?
-  divida              Divida?   @relation(fields: [dividaId], references: [id])
+  dividaId                String?
+  divida                  Divida?                @relation(fields: [dividaId], references: [id])
   // Referência opcional ao produto vendido, usada na Composição do
   // Faturamento (aba Análise). Só faz sentido em entradas de venda.
-  produtoId           String?
-  produto             Produto?  @relation(fields: [produtoId], references: [id])
+  produtoId               String?
+  produto                 Produto?               @relation(fields: [produtoId], references: [id])
   // Cliente vinculado a uma venda (aba Clientes).
-  clienteId           String?
-  cliente             Cliente?  @relation(fields: [clienteId], references: [id])
+  clienteId               String?
+  cliente                 Cliente?               @relation(fields: [clienteId], references: [id])
   // Quando marcar o próximo retorno esperado desse cliente.
-  dataProximoRetorno  DateTime?
+  dataProximoRetorno      DateTime?
   // Legado: nome de quem fechou a venda como texto livre, de antes de
   // existir cadastro de usuários. Mantido para não perder o dado de vendas
   // antigas; vendas novas preenchem fechadoPorUsuarioId.
-  fechadoPor          String?
-  fechadoPorUsuarioId String?
-  fechadoPorUsuario   Usuario?  @relation("FechadoPor", fields: [fechadoPorUsuarioId], references: [id])
-  clinicaId           String
-  clinica             Clinica   @relation(fields: [clinicaId], references: [id])
-  createdAt           DateTime  @default(now())
+  fechadoPor              String?
+  fechadoPorUsuarioId     String?
+  fechadoPorUsuario       Usuario?               @relation("FechadoPor", fields: [fechadoPorUsuarioId], references: [id])
+  // Presente quando este registro foi gerado (automaticamente, mês a mês)
+  // como o salário de um Funcionario ativo. Uma vez criado para um
+  // (funcionarioId, data), a geração automática nunca mais recria nem
+  // sobrescreve esse registro — permitindo edição pontual do valor daquela
+  // ocorrência sem alterar Funcionario.valorMensal.
+  funcionarioId           String?
+  funcionario             Funcionario?           @relation(fields: [funcionarioId], references: [id])
+  // Presente quando este registro veio de uma DespesaAdministrativa —
+  // recorrente (gerado automaticamente a cada intervalo, a partir de
+  // dataInicio) ou avulsa (criado uma única vez, na data informada). Mesma
+  // regra de não sobrescrita que funcionarioId.
+  despesaAdministrativaId String?
+  despesaAdministrativa   DespesaAdministrativa? @relation(fields: [despesaAdministrativaId], references: [id])
+  clinicaId               String
+  clinica                 Clinica                @relation(fields: [clinicaId], references: [id])
+  createdAt               DateTime               @default(now())
+
+  // Constraints não-parciais: Postgres trata cada NULL como distinto, então
+  // isso só restringe de fato as linhas que TÊM o respectivo id preenchido
+  // (a maioria das linhas, com ambos nulos, nunca conflita) — é o que
+  // garante a geração automática idempotente via createMany+skipDuplicates.
+  @@unique([funcionarioId, data])
+  @@unique([despesaAdministrativaId, data])
+}
+
+// Um funcionário (CLT ou PJ) da clínica, cujo custo mensal entra
+// automaticamente no Financeiro como um EntradaSaida de salário. Desligar um
+// funcionário marca ativo=false (a geração automática para futuras
+// ocorrências), sem apagar o histórico já lançado.
+model Funcionario {
+  id           String   @id @default(cuid())
+  nome         String
+  tipoContrato String // "CLT" ou "PJ"
+  valorMensal  Float
+  // Vincula a um Usuario da Equipe, se esse funcionário também tem acesso
+  // ao sistema — opcional, e independente do cadastro de folha em si.
+  usuarioId    String?  @unique
+  usuario      Usuario? @relation(fields: [usuarioId], references: [id])
+  ativo        Boolean  @default(true)
+  clinicaId    String
+  clinica      Clinica  @relation(fields: [clinicaId], references: [id])
+  createdAt    DateTime @default(now())
+
+  entradasSaida EntradaSaida[]
+}
+
+// Uma despesa administrativa fixa da clínica — avulsa (uma ocorrência, na
+// `data` informada) ou recorrente (uma ocorrência a cada `frequencia`, a
+// partir de `dataInicio`, gerada automaticamente enquanto ativo=true).
+model DespesaAdministrativa {
+  id         String    @id @default(cuid())
+  nome       String
+  recorrente Boolean   @default(false)
+  // "semanal", "quinzenal", "mensal" ou "60dias" — obrigatório se recorrente.
+  frequencia String?
+  valor      Float
+  // Usada se recorrente=true, para calcular a próxima geração.
+  dataInicio DateTime?
+  // Usada se recorrente=false (despesa avulsa).
+  data       DateTime?
+  // "pago" ou "pendente" — relevante apenas para despesa avulsa.
+  status     String    @default("pendente")
+  ativo      Boolean   @default(true)
+  clinicaId  String
+  clinica    Clinica   @relation(fields: [clinicaId], references: [id])
+  createdAt  DateTime  @default(now())
+
+  entradasSaida EntradaSaida[]
 }
 
 model Cliente {

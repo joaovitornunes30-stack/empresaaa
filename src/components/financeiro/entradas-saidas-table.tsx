@@ -2,6 +2,7 @@ import { marcarParcelaPaga } from "@/app/(app)/financeiro/actions";
 import { formatarData, formatarMoeda, parcelaVencida } from "@/lib/financeiro";
 import { MetaLucroTermometro } from "@/components/financeiro/meta-lucro-termometro";
 import { DefinirMetaButton } from "@/components/financeiro/definir-meta-button";
+import { EditarValorLancamento } from "@/components/financeiro/editar-valor-lancamento";
 
 type Parcela = {
   id: string;
@@ -19,6 +20,8 @@ type EntradaSaida = {
   descricao: string | null;
   nomePrestador: string | null;
   parcelas: Parcela[];
+  funcionarioId: string | null;
+  despesaAdministrativaId: string | null;
 };
 
 export function EntradasSaidasTable({
@@ -106,9 +109,19 @@ export function EntradasSaidasTable({
                           · {item.nomePrestador}
                         </span>
                       )}
+                      {(item.funcionarioId || item.despesaAdministrativaId) && (
+                        <span className="ml-2 inline-flex rounded-full bg-foreground/5 px-2 py-0.5 text-xs font-medium text-foreground/50">
+                          Automático
+                        </span>
+                      )}
                     </td>
                     <td className="px-5 py-4 font-medium text-foreground">
-                      {formatarMoeda(item.valor)}
+                      <div className="flex flex-col gap-1">
+                        <span>{formatarMoeda(item.valor)}</span>
+                        {(item.funcionarioId || item.despesaAdministrativaId) && (
+                          <EditarValorLancamento id={item.id} valorAtual={item.valor} />
+                        )}
+                      </div>
                     </td>
                     <td className="px-5 py-4 text-foreground/70">
                       {formatarData(item.data)}

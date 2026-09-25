@@ -6,12 +6,15 @@ import {
   limitesDoMes,
   mesAtual,
 } from "@/lib/financeiro";
+import { sincronizarLancamentosRecorrentes } from "@/lib/folha";
 import { ResumoDividas } from "@/components/financeiro/resumo-dividas";
 import { ProjecaoCaixa } from "@/components/financeiro/projecao-caixa";
 import { EntradasSaidasTable } from "@/components/financeiro/entradas-saidas-table";
 import { NovaEntradaSaidaButton } from "@/components/financeiro/nova-entrada-saida-button";
 import { DividasManager } from "@/components/financeiro/dividas-manager";
 import { TodasDividasTable } from "@/components/financeiro/todas-dividas-table";
+import { FuncionariosManager } from "@/components/financeiro/funcionarios-manager";
+import { DespesasAdministrativasManager } from "@/components/financeiro/despesas-administrativas-manager";
 import { exigirSessaoPagina } from "@/lib/auth";
 import { runWithTenant } from "@/lib/tenant-context";
 
@@ -21,17 +24,20 @@ export default async function FinanceiroPage(props: PageProps<"/financeiro">) {
   const sessao = await exigirSessaoPagina(["dono", "consultor"]);
   const searchParams = await props.searchParams;
   return runWithTenant(sessao, () =>
-    FinanceiroPageConteudo(searchParams, sessao.papel === "consultor"),
+    FinanceiroPageConteudo(searchParams, sessao.papel === "consultor", sessao.clinicaId),
   );
 }
 
 async function FinanceiroPageConteudo(
   searchParams: Awaited<PageProps<"/financeiro">["searchParams"]>,
   somenteLeitura: boolean,
+  clinicaId: string,
 ) {
   const mesParam = searchParams.mes;
   const mes = typeof mesParam === "string" && mesParam ? mesParam : mesAtual();
   const { inicio, fim } = limitesDoMes(mes);
+
+  if (!somenteLeitura) await sincronizarLancamentosRecorrentes();
 
   const [
     dividas,
@@ -40,6 +46,9 @@ async function FinanceiroPageConteudo(
     entradasSaidasDoMes,
     metaLucro,
     produtos,
+    funcionarios,
+    despesasAdministrativas,
+    usuariosDisponiveis,
   ] = await Promise.all([
     prisma.divida.findMany({
       orderBy: { createdAt: "desc" },
@@ -57,6 +66,13 @@ async function FinanceiroPageConteudo(
     }),
     prisma.metaLucroMensal.findFirst({ where: { mes } }),
     prisma.produto.findMany({ select: { id: true, nome: true }, orderBy: { nome: "asc" } }),
+    prisma.funcionario.findMany({ orderBy: { createdAt: "asc" } }),
+    prisma.despesaAdministrativa.findMany({ orderBy: { createdAt: "asc" } }),
+    prisma.usuario.findMany({
+      where: { clinicaId, ativo: true },
+      select: { id: true, nome: true, email: true },
+      orderBy: { nome: "asc" },
+    }),
   ]);
 
   const totaisPorPrazo = agruparDividasPorPrazo(dividas);
@@ -76,7 +92,12 @@ async function FinanceiroPageConteudo(
           </p>
         </div>
         {!somenteLeitura && (
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <FuncionariosManager
+              funcionarios={funcionarios}
+              usuariosDisponiveis={usuariosDisponiveis}
+            />
+            <DespesasAdministrativasManager despesas={despesasAdministrativas} />
             <DividasManager dividas={dividas} />
             <NovaEntradaSaidaButton produtos={produtos} />
           </div>
