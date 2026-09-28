@@ -185,9 +185,9 @@ model EntradaSaida {
   fechadoPorUsuario       Usuario?               @relation("FechadoPor", fields: [fechadoPorUsuarioId], references: [id])
   // Presente quando este registro foi gerado (automaticamente, mês a mês)
   // como o salário de um Funcionario ativo. Uma vez criado para um
-  // (funcionarioId, data), a geração automática nunca mais recria nem
-  // sobrescreve esse registro — permitindo edição pontual do valor daquela
-  // ocorrência sem alterar Funcionario.valorMensal.
+  // (funcionarioId, periodoChave), a geração automática nunca mais recria
+  // nem sobrescreve esse registro — permitindo edição pontual do valor (ou
+  // até da própria data) daquela ocorrência sem alterar Funcionario.valorMensal.
   funcionarioId           String?
   funcionario             Funcionario?           @relation(fields: [funcionarioId], references: [id])
   // Presente quando este registro veio de uma DespesaAdministrativa —
@@ -196,6 +196,12 @@ model EntradaSaida {
   // regra de não sobrescrita que funcionarioId.
   despesaAdministrativaId String?
   despesaAdministrativa   DespesaAdministrativa? @relation(fields: [despesaAdministrativaId], references: [id])
+  // Identifica o período de um lançamento automático — "AAAA-MM" para o
+  // salário mensal de um Funcionario, a data de ocorrência original
+  // ("AAAA-MM-DD") para uma DespesaAdministrativa recorrente — e nunca a
+  // sua `data`, que pode ser editada pontualmente sem gerar duplicata. Nulo
+  // em qualquer lançamento que não seja automático.
+  periodoChave            String?
   clinicaId               String
   clinica                 Clinica                @relation(fields: [clinicaId], references: [id])
   createdAt               DateTime               @default(now())
@@ -204,8 +210,8 @@ model EntradaSaida {
   // isso só restringe de fato as linhas que TÊM o respectivo id preenchido
   // (a maioria das linhas, com ambos nulos, nunca conflita) — é o que
   // garante a geração automática idempotente via createMany+skipDuplicates.
-  @@unique([funcionarioId, data])
-  @@unique([despesaAdministrativaId, data])
+  @@unique([funcionarioId, periodoChave])
+  @@unique([despesaAdministrativaId, periodoChave])
 }
 
 // Um funcionário (CLT ou PJ) da clínica, cujo custo mensal entra

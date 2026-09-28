@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { adicionarDias, adicionarMeses } from "@/lib/financeiro";
+import { adicionarDias, adicionarMeses, mesAtual } from "@/lib/financeiro";
 import { tenantAtual } from "@/lib/tenant-context";
 
 export const DIAS_POR_FREQUENCIA: Record<string, number> = {
@@ -63,6 +63,37 @@ export function gerarPeriodosDespesaRecorrente(
   return periodos;
 }
 
+function diaISO(data: Date): string {
+  return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}-${String(data.getDate()).padStart(2, "0")}`;
+}
+
+/**
+ * Preenche periodoChave nos lançamentos automáticos que ainda não o têm
+ * (gerados antes desse campo existir), a partir da própria `data` de cada
+ * um — nunca da data de geração original, que não temos mais como saber.
+ * Idempotente: uma vez preenchido, uma linha nunca é revisitada aqui.
+ */
+async function preencherPeriodoChaveFaltante() {
+  const semPeriodo = await prisma.entradaSaida.findMany({
+    where: {
+      periodoChave: null,
+      OR: [{ funcionarioId: { not: null } }, { despesaAdministrativaId: { not: null } }],
+    },
+    select: { id: true, data: true, funcionarioId: true },
+  });
+
+  if (semPeriodo.length === 0) return;
+
+  await prisma.$transaction(
+    semPeriodo.map((lancamento) =>
+      prisma.entradaSaida.update({
+        where: { id: lancamento.id },
+        data: { periodoChave: lancamento.funcionarioId ? mesAtual(lancamento.data) : diaISO(lancamento.data) },
+      }),
+    ),
+  );
+}
+
 /**
  * Gera (idempotentemente) os lançamentos automáticos ainda faltantes: o
  * salário mensal de cada Funcionario ativo e cada ocorrência de
@@ -70,12 +101,15 @@ export function gerarPeriodosDespesaRecorrente(
  * no carregamento de Financeiro e Análise — sem cron, a geração "pega o
  * atraso" sempre que alguém abre uma dessas páginas. Nunca recria nem
  * sobrescreve um lançamento já existente para o mesmo período
- * (funcionarioId/despesaAdministrativaId + data), graças ao
- * @@unique + skipDuplicates — uma edição pontual feita naquele lançamento
- * nunca é desfeita por uma sincronização seguinte.
+ * (funcionarioId/despesaAdministrativaId + periodoChave), graças ao
+ * @@unique + skipDuplicates — deduplicar pelo período (não pela `data`)
+ * garante que editar pontualmente a data de um lançamento já gerado nunca
+ * faz a sincronização seguinte recriá-lo.
  */
 export async function sincronizarLancamentosRecorrentes() {
   const hoje = new Date();
+
+  await preencherPeriodoChaveFaltante();
 
   const [funcionarios, despesasRecorrentes] = await Promise.all([
     prisma.funcionario.findMany({ where: { ativo: true } }),
@@ -89,6 +123,7 @@ export async function sincronizarLancamentosRecorrentes() {
     categoria: string;
     valor: number;
     data: Date;
+    periodoChave: string;
     descricao: string;
     funcionarioId?: string;
     despesaAdministrativaId?: string;
@@ -102,6 +137,7 @@ export async function sincronizarLancamentosRecorrentes() {
         categoria: "Salário",
         valor: funcionario.valorMensal,
         data,
+        periodoChave: mesAtual(data),
         descricao: funcionario.nome,
         funcionarioId: funcionario.id,
         clinicaId,
@@ -117,6 +153,7 @@ export async function sincronizarLancamentosRecorrentes() {
         categoria: "Despesa Administrativa",
         valor: despesa.valor,
         data,
+        periodoChave: diaISO(data),
         descricao: despesa.nome,
         despesaAdministrativaId: despesa.id,
         clinicaId,
