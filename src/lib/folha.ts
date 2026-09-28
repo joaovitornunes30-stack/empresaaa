@@ -31,7 +31,12 @@ export function gerarPeriodosFuncionario(inicio: Date, hoje: Date = new Date()):
 /**
  * Uma ocorrência a cada `frequencia`, a partir de `dataInicio`, até `hoje`
  * (inclusive) — usado para gerar os lançamentos de uma DespesaAdministrativa
- * recorrente ativa.
+ * recorrente ativa. Para "mensal", cada período é `dataInicio` + N meses
+ * (N = 0, 1, 2...) calculado sempre a partir da data de início original —
+ * encadear a partir do cursor anterior faria o dia "escorregar" quando um
+ * mês intermediário não tem esse dia (31/01 -> 28/02 -> 28/03 em vez de
+ * 31/03). Frequências em dias (semanal/quinzenal/60dias) não têm essa
+ * ambiguidade — adicionar um número fixo de dias é sempre exato.
  */
 export function gerarPeriodosDespesaRecorrente(
   dataInicio: Date,
@@ -39,13 +44,21 @@ export function gerarPeriodosDespesaRecorrente(
   hoje: Date = new Date(),
 ): Date[] {
   const periodos: Date[] = [];
+
+  if (frequencia === "mensal") {
+    for (let n = 0; ; n += 1) {
+      const data = adicionarMeses(dataInicio, n);
+      if (data > hoje) break;
+      periodos.push(data);
+    }
+    return periodos;
+  }
+
+  const passoDias = DIAS_POR_FREQUENCIA[frequencia] ?? 30;
   let cursor = new Date(dataInicio);
   while (cursor <= hoje) {
     periodos.push(cursor);
-    cursor =
-      frequencia === "mensal"
-        ? adicionarMeses(cursor, 1)
-        : adicionarDias(cursor, DIAS_POR_FREQUENCIA[frequencia] ?? 30);
+    cursor = adicionarDias(cursor, passoDias);
   }
   return periodos;
 }

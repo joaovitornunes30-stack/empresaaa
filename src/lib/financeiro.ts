@@ -131,9 +131,19 @@ export function parcelaVencida(
   return parcela.status === "pendente" && diasAte(parcela.dataVencimento, hoje) < 0;
 }
 
+/**
+ * Soma meses limitando ao último dia do mês de destino quando o dia
+ * original não existir nele (ex: 31/01 + 1 mês = 28/02 ou 29/02, nunca
+ * "estoura" para março). Sem o setDate(1) intermediário, Date.setMonth
+ * rola o excesso de dias para o mês seguinte (31/01 + 1 mês viraria 03/03).
+ */
 export function adicionarMeses(data: Date, meses: number) {
   const resultado = new Date(data);
+  const diaOriginal = resultado.getDate();
+  resultado.setDate(1);
   resultado.setMonth(resultado.getMonth() + meses);
+  const ultimoDiaDoMesAlvo = new Date(resultado.getFullYear(), resultado.getMonth() + 1, 0).getDate();
+  resultado.setDate(Math.min(diaOriginal, ultimoDiaDoMesAlvo));
   return resultado;
 }
 
