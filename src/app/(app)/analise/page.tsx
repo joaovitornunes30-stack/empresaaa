@@ -38,18 +38,21 @@ import { GastoMidiaCard } from "@/components/analise/gasto-midia-card";
 import { ResumoDividas } from "@/components/financeiro/resumo-dividas";
 import { ComparativoMensalChart } from "@/components/analise/comparativo-mensal-chart";
 import { ResumoDoMes } from "@/components/analise/resumo-do-mes";
-import { exigirSessaoAba } from "@/lib/permissoes";
-import { runWithTenant } from "@/lib/tenant-context";
+import { RetiradasIndicador } from "@/components/analise/retiradas-indicador";
+import { exigirSessaoAba, temPermissaoAba } from "@/lib/permissoes";
+import { runWithTenant, type TenantContext } from "@/lib/tenant-context";
 import { sincronizarLancamentosRecorrentes } from "@/lib/folha";
+import { calcularTotalRetiradoNoMes } from "@/lib/retiradas";
+import { calcularRetiradaSaudavel } from "@/lib/retiradas-calculo";
 
 export const dynamic = "force-dynamic";
 
 export default async function AnalisePage() {
   const sessao = await exigirSessaoAba("analise");
-  return runWithTenant(sessao, () => AnalisePageConteudo(sessao.papel === "consultor"));
+  return runWithTenant(sessao, () => AnalisePageConteudo(sessao, sessao.papel === "consultor"));
 }
 
-async function AnalisePageConteudo(somenteLeitura: boolean) {
+async function AnalisePageConteudo(sessao: TenantContext, somenteLeitura: boolean) {
   if (!somenteLeitura) await sincronizarLancamentosRecorrentes();
 
   const hoje = new Date();
@@ -204,13 +207,40 @@ async function AnalisePageConteudo(somenteLeitura: boolean) {
       : null,
   });
 
+  // Indicador de Retiradas: só para quem já tem acesso à própria aba
+  // Retiradas (dono, consultor, ou membro com acessaFinanceiroRetiradas) —
+  // para os demais, nem a consulta é feita.
+  const podeVerRetiradas = await temPermissaoAba(sessao, "retiradas");
+  const indicadorRetiradas = podeVerRetiradas
+    ? await (async () => {
+        const [retiradasDoMes, clinica] = await Promise.all([
+          prisma.retirada.findMany({ where: { data: { gte: inicio, lt: fim } }, select: { valor: true, data: true } }),
+          prisma.clinica.findUniqueOrThrow({ where: { id: sessao.clinicaId } }),
+        ]);
+        const estado = await calcularRetiradaSaudavel(
+          clinica.percentualReservaRetirada,
+          clinica.proLaboreCombinado,
+          hoje,
+        );
+        return { estado, totalRetiradoMes: calcularTotalRetiradoNoMes(retiradasDoMes, mes) };
+      })()
+    : null;
+
   return (
     <main className="mx-auto max-w-6xl px-6 py-10 sm:px-10">
-      <header className="mb-8">
-        <h1 className="font-display text-2xl font-bold text-foreground">Análise</h1>
-        <p className="mt-1 text-sm text-foreground/60">
-          Painel consolidado do mês — dados reais, sem estimativas.
-        </p>
+      <header className="mb-8 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="font-display text-2xl font-bold text-foreground">Análise</h1>
+          <p className="mt-1 text-sm text-foreground/60">
+            Painel consolidado do mês — dados reais, sem estimativas.
+          </p>
+        </div>
+        {indicadorRetiradas && (
+          <RetiradasIndicador
+            estado={indicadorRetiradas.estado}
+            totalRetiradoMes={indicadorRetiradas.totalRetiradoMes}
+          />
+        )}
       </header>
 
       <div className="mb-8 grid grid-cols-1 gap-4 lg:grid-cols-3">

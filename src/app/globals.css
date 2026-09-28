@@ -21,6 +21,14 @@
   --color-warn-bg: #fff2e8;
   --color-critical: #dc2626;
   --color-critical-bg: #fef2f2;
+
+  /* Vermelho dessaturado — usado só no semáforo de Retiradas, para o
+     estado "acima do recomendado". Deliberadamente mais suave que
+     --color-critical (reservado a estados realmente urgentes, ex:
+     cliente muito distante): retirada acima do recomendado é uma
+     referência de gestão, não um alerta grave. */
+  --color-muted-red: #a3514b;
+  --color-muted-red-bg: #f7ece9;
 }
 
 @theme inline {
@@ -40,6 +48,8 @@
   --color-warn-bg: var(--color-warn-bg);
   --color-critical: var(--color-critical);
   --color-critical-bg: var(--color-critical-bg);
+  --color-muted-red: var(--color-muted-red);
+  --color-muted-red-bg: var(--color-muted-red-bg);
   --font-display: var(--font-sora);
   --font-sans: var(--font-inter);
 }

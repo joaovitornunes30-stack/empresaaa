@@ -15,22 +15,28 @@ model Clinica {
   nome      String
   createdAt DateTime @default(now())
 
-  usuarios                Usuario[]
-  consultorAcessos        ConsultorAcesso[]
-  perfisTributarios       PerfilTributario[]
-  produtos                Produto[]
-  entradasSaida           EntradaSaida[]
-  parcelas                Parcela[]
-  dividas                 Divida[]
-  estoqueMovimentos       EstoqueMovimento[]
-  clientes                Cliente[]
-  planos                  Plano[]
-  planoModelos            PlanoModelo[]
-  metasDoMes              MetaDoMes[]
-  metasLucroMensal        MetaLucroMensal[]
-  retiradas               Retirada[]
-  funcionarios            Funcionario[]
-  despesasAdministrativas DespesaAdministrativa[]
+  usuarios                  Usuario[]
+  consultorAcessos          ConsultorAcesso[]
+  perfisTributarios         PerfilTributario[]
+  produtos                  Produto[]
+  entradasSaida             EntradaSaida[]
+  parcelas                  Parcela[]
+  dividas                   Divida[]
+  estoqueMovimentos         EstoqueMovimento[]
+  clientes                  Cliente[]
+  planos                    Plano[]
+  planoModelos              PlanoModelo[]
+  metasDoMes                MetaDoMes[]
+  metasLucroMensal          MetaLucroMensal[]
+  retiradas                 Retirada[]
+  funcionarios              Funcionario[]
+  despesasAdministrativas   DespesaAdministrativa[]
+  // % da sobra média dos últimos 3 meses fechados que fica retida na
+  // clínica em vez de virar retirada saudável — ver lib/retiradas-calculo.ts.
+  percentualReservaRetirada Float                   @default(20)
+  // Valor mensal de pró-labore combinado com o dono/consultor — usado como
+  // referência de retirada saudável enquanto não há 3 meses fechados.
+  proLaboreCombinado        Float?
 }
 
 // "dono": acesso total à própria clínica, fixo, não editável. "membro":
@@ -382,13 +388,18 @@ model EstoqueMovimento {
 }
 
 model Retirada {
-  id        String   @id @default(cuid())
-  valor     Float
-  data      DateTime
-  descricao String?
-  clinicaId String
-  clinica   Clinica  @relation(fields: [clinicaId], references: [id])
-  createdAt DateTime @default(now())
+  id         String   @id @default(cuid())
+  valor      Float
+  data       DateTime
+  descricao  String?
+  // "rotina", "imprevisto", "investimento" ou "outro" — em destaque no
+  // formulário, mas sempre preenchido (default "rotina" se pulado).
+  motivo     String   @default("rotina")
+  // Texto livre opcional — ex: o que motivou uma retirada fora do padrão.
+  observacao String?
+  clinicaId  String
+  clinica    Clinica  @relation(fields: [clinicaId], references: [id])
+  createdAt  DateTime @default(now())
 }
 
 model Divida {
