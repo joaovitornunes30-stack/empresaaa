@@ -5,7 +5,7 @@ import type { Papel } from "@/lib/tenant-context";
 const ROTA_PADRAO_POR_PAPEL: Record<Papel, string> = {
   dono: "/analise",
   membro: "/clientes",
-  consultor: "/analise",
+  consultor: "/central-consultor",
 };
 
 export function rotaPadraoParaPapel(papel: Papel) {

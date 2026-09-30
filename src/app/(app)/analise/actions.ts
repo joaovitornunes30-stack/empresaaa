@@ -1,10 +1,12 @@
 "use server";
 
+import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { type ActionState } from "@/lib/auth";
+import { lerSessao, type ActionState } from "@/lib/auth";
 import { comSessaoAba } from "@/lib/permissoes";
+import { runWithTenant } from "@/lib/tenant-context";
 
 export type { ActionState };
 
@@ -68,3 +70,53 @@ export const registrarMovimentoEstoque = comSessaoAba("analise", async (ctx, _pr
   revalidatePath("/analise");
   return { error: null };
 });
+
+/**
+ * Só o consultor escreve uma anotação — por isso não usa comSessaoAba, que
+ * bloqueia incondicionalmente qualquer mutação de um consultor.
+ */
+export async function criarAnotacaoConsultor(_prevState: ActionState, formData: FormData): Promise<ActionState> {
+  const sessao = await lerSessao();
+  if (!sessao) redirect("/login");
+
+  if (sessao.papel !== "consultor") {
+    return { error: "Só o consultor pode adicionar uma anotação." };
+  }
+
+  const texto = String(formData.get("texto") || "").trim();
+  if (!texto) {
+    return { error: "Escreva algo antes de salvar." };
+  }
+
+  return runWithTenant(sessao, async () => {
+    await prisma.anotacaoConsultor.create({
+      data: { texto, autorId: sessao.usuarioId, clinicaId: sessao.clinicaId },
+    });
+
+    revalidatePath("/analise");
+    return { error: null };
+  });
+}
+
+/**
+ * Dono e consultor podem marcar (ou reabrir) uma anotação como resolvida —
+ * por isso não usa comSessaoSimplesAba, que bloqueia incondicionalmente
+ * qualquer mutação de um consultor.
+ */
+export async function marcarAnotacaoConsultorResolvida(formData: FormData): Promise<void> {
+  const sessao = await lerSessao();
+  if (!sessao) redirect("/login");
+
+  if (sessao.papel !== "dono" && sessao.papel !== "consultor") {
+    throw new Error("Você não tem permissão para esta ação.");
+  }
+
+  const id = String(formData.get("id") || "");
+  const resolvida = formData.get("resolvida") === "true";
+  if (!id) throw new Error("Anotação inválida.");
+
+  await runWithTenant(sessao, async () => {
+    await prisma.anotacaoConsultor.update({ where: { id }, data: { resolvida } });
+    revalidatePath("/analise");
+  });
+}

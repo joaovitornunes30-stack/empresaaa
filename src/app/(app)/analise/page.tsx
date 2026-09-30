@@ -39,6 +39,10 @@ import { ResumoDividas } from "@/components/financeiro/resumo-dividas";
 import { ComparativoMensalChart } from "@/components/analise/comparativo-mensal-chart";
 import { ResumoDoMes } from "@/components/analise/resumo-do-mes";
 import { RetiradasIndicador } from "@/components/analise/retiradas-indicador";
+import {
+  AnotacoesConsultorSection,
+  type AnotacaoConsultorItem,
+} from "@/components/analise/anotacoes-consultor-section";
 import { exigirSessaoAba, temPermissaoAba } from "@/lib/permissoes";
 import { runWithTenant, type TenantContext } from "@/lib/tenant-context";
 import { sincronizarLancamentosRecorrentes } from "@/lib/folha";
@@ -226,6 +230,28 @@ async function AnalisePageConteudo(sessao: TenantContext, somenteLeitura: boolea
       })()
     : null;
 
+  // Anotações do Consultor: visível para dono e consultor, nunca para
+  // membro — é uma ferramenta de coordenação entre os dois, não um dado
+  // operacional do dia a dia da clínica.
+  const podeVerAnotacoesConsultor = sessao.papel !== "membro";
+  const anotacoesConsultor: AnotacaoConsultorItem[] = podeVerAnotacoesConsultor
+    ? await (async () => {
+        const anotacoes = await prisma.anotacaoConsultor.findMany({ orderBy: { createdAt: "desc" } });
+        const autores = await prisma.usuario.findMany({
+          where: { id: { in: [...new Set(anotacoes.map((a) => a.autorId))] } },
+          select: { id: true, nome: true },
+        });
+        const nomePorAutorId = new Map(autores.map((a) => [a.id, a.nome]));
+        return anotacoes.map((a) => ({
+          id: a.id,
+          texto: a.texto,
+          resolvida: a.resolvida,
+          createdAt: a.createdAt,
+          autorNome: nomePorAutorId.get(a.autorId) ?? "Consultor",
+        }));
+      })()
+    : [];
+
   return (
     <main className="mx-auto max-w-6xl px-6 py-10 sm:px-10">
       <header className="mb-8 flex flex-wrap items-start justify-between gap-4">
@@ -310,12 +336,19 @@ async function AnalisePageConteudo(sessao: TenantContext, somenteLeitura: boolea
         <ComparativoMensalChart pontos={comparativo} />
       </div>
 
-      <div>
+      <div className="mb-8">
         <h2 className="mb-3 font-display text-base font-semibold text-foreground">
           Resumo do mês
         </h2>
         <ResumoDoMes linhas={resumo} />
       </div>
+
+      {podeVerAnotacoesConsultor && (
+        <AnotacoesConsultorSection
+          anotacoes={anotacoesConsultor}
+          podeAdicionar={sessao.papel === "consultor"}
+        />
+      )}
     </main>
   );
 }

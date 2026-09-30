@@ -55,12 +55,13 @@ export async function login(_prevState: ActionState, formData: FormData): Promis
       return { error: "Este consultor ainda não tem acesso a nenhuma clínica." };
     }
 
-    // Cada acesso (incluindo o login em si) grava um novo registro — é o
-    // que alimenta o banner "Consultor visualizou em [data/hora]".
-    await prisma.consultorAcesso.create({
-      data: { usuarioId: usuario.id, clinicaId: ultimoAcesso.clinicaId },
-    });
-
+    // O login não entra em nenhuma clínica específica — a tela inicial do
+    // consultor é a Central do Consultor (hub multi-clínica), não a Análise
+    // de uma clínica. O registro em ConsultorAcesso (que alimenta o banner
+    // "Consultor visualizou em [data/hora]") só acontece quando ele de fato
+    // clica para entrar numa clínica, em trocarClinicaConsultor. A última
+    // clínica visitada só define o clinicaId inicial da sessão, usado se ele
+    // navegar direto para uma aba pela barra lateral sem passar pela Central.
     await criarSessao({
       usuarioId: usuario.id,
       nome: usuario.nome,

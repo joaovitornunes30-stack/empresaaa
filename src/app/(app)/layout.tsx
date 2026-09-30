@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { exigirSessaoPagina } from "@/lib/auth";
 import { abasPermitidas } from "@/lib/permissoes";
 import { Sidebar } from "@/components/sidebar";
@@ -28,12 +29,20 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           />
         )}
         <header className="flex items-center justify-between border-b border-border bg-surface px-6 py-3">
-          <div>
+          <div className="flex items-center gap-3">
             {sessao.papel === "consultor" && (
-              <ConsultorClinicSwitcher
-                clinicas={clinicasConsultor}
-                clinicaAtivaId={sessao.clinicaId}
-              />
+              <>
+                <Link
+                  href="/central-consultor"
+                  className="text-sm font-medium text-foreground/70 hover:text-primary-dark"
+                >
+                  &larr; Central do Consultor
+                </Link>
+                <ConsultorClinicSwitcher
+                  clinicas={clinicasConsultor}
+                  clinicaAtivaId={sessao.clinicaId}
+                />
+              </>
             )}
           </div>
           <AccountMenu

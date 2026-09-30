@@ -31,6 +31,7 @@ model Clinica {
   retiradas                 Retirada[]
   funcionarios              Funcionario[]
   despesasAdministrativas   DespesaAdministrativa[]
+  anotacoesConsultor        AnotacaoConsultor[]
   // % da sobra média dos últimos 3 meses fechados que fica retida na
   // clínica em vez de virar retirada saudável — ver lib/retiradas-calculo.ts.
   percentualReservaRetirada Float                   @default(20)
@@ -97,6 +98,19 @@ model ConsultorAcesso {
   clinicaId  String
   clinica    Clinica  @relation(fields: [clinicaId], references: [id])
   dataAcesso DateTime @default(now())
+}
+
+// Anotação de um consultor sobre uma clínica específica — visível para o
+// consultor e para o dono daquela clínica (seção "Anotações do Consultor").
+// Só o consultor cria; dono e consultor podem marcar como resolvida.
+model AnotacaoConsultor {
+  id        String   @id @default(cuid())
+  clinicaId String
+  clinica   Clinica  @relation(fields: [clinicaId], references: [id])
+  autorId   String // Usuario consultor que escreveu
+  texto     String
+  resolvida Boolean  @default(false)
+  createdAt DateTime @default(now())
 }
 
 model PerfilTributario {
