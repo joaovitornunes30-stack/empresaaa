@@ -1,0 +1,446 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Uma clínica cadastrada no Aivy — todo dado de negócio abaixo pertence a
+// exatamente uma Clinica, e cada usuário só enxerga dados da(s) clínica(s)
+// às quais tem acesso (ver Usuario/ConsultorAcesso).
+model Clinica {
+  id        String   @id @default(cuid())
+  nome      String
+  createdAt DateTime @default(now())
+
+  usuarios                  Usuario[]
+  consultorAcessos          ConsultorAcesso[]
+  perfisTributarios         PerfilTributario[]
+  produtos                  Produto[]
+  entradasSaida             EntradaSaida[]
+  parcelas                  Parcela[]
+  dividas                   Divida[]
+  estoqueMovimentos         EstoqueMovimento[]
+  clientes                  Cliente[]
+  planos                    Plano[]
+  planoModelos              PlanoModelo[]
+  metasDoMes                MetaDoMes[]
+  metasLucroMensal          MetaLucroMensal[]
+  retiradas                 Retirada[]
+  funcionarios              Funcionario[]
+  despesasAdministrativas   DespesaAdministrativa[]
+  anotacoesConsultor        AnotacaoConsultor[]
+  // % da sobra média dos últimos 3 meses fechados que fica retida na
+  // clínica em vez de virar retirada saudável — ver lib/retiradas-calculo.ts.
+  percentualReservaRetirada Float                   @default(20)
+  // Valor mensal de pró-labore combinado com o dono/consultor — usado como
+  // referência de retirada saudável enquanto não há 3 meses fechados.
+  proLaboreCombinado        Float?
+  // Módulos avançados opcionais (Modo Simples): { planos, protocolo,
+  // indicacoes }, todos desligados por padrão numa clínica nova. Desligar
+  // um módulo só esconde a interface de criação — nenhum dado existente é
+  // apagado nem para de contar nos cálculos. Ver lib/modulos.ts.
+  modulosAtivos             Json                    @default("{\"planos\":false,\"protocolo\":false,\"indicacoes\":false}")
+}
+
+// "dono": acesso total à própria clínica, fixo, não editável. "membro":
+// permissões customizadas por aba (ver PermissaoUsuario) — cargo é texto
+// livre, só relevante para este papel. "consultor": acesso somente leitura a
+// qualquer clínica listada em ConsultorAcesso — não pertence a uma clínica
+// fixa, por isso clinicaId é nulo.
+model Usuario {
+  id        String   @id @default(cuid())
+  nome      String
+  email     String   @unique
+  senhaHash String
+  papel     String
+  // Texto livre (ex: "Vendedora", "Secretária", "Financeiro") — só
+  // preenchido/relevante quando papel="membro".
+  cargo     String?
+  ativo     Boolean  @default(true)
+  clinicaId String?
+  clinica   Clinica? @relation(fields: [clinicaId], references: [id])
+  createdAt DateTime @default(now())
+
+  consultorAcessos ConsultorAcesso[]
+  // Vendas (EntradaSaida) em que este usuário está marcado como quem fechou.
+  vendasFechadas   EntradaSaida[]    @relation("FechadoPor")
+  // Presente quando este usuário também é um Funcionario cadastrado (tem
+  // acesso ao sistema além de constar na folha).
+  funcionario      Funcionario?
+  // Permissões granulares por aba — só existe (e só é consultada) quando
+  // papel="membro". dono/consultor têm seu acesso resolvido sem esta tabela.
+  permissoes       PermissaoUsuario?
+}
+
+// Permissões granulares de um Usuario com papel="membro", uma aba por
+// coluna. acessaFinanceiroRetiradas só tem efeito quando acessaFinanceiro
+// também é true (Retiradas é um dado sensível dentro do próprio Financeiro).
+model PermissaoUsuario {
+  id                        String  @id @default(cuid())
+  usuarioId                 String  @unique
+  usuario                   Usuario @relation(fields: [usuarioId], references: [id])
+  acessaProdutos            Boolean @default(false)
+  acessaClientes            Boolean @default(false)
+  acessaFinanceiro          Boolean @default(false)
+  acessaFinanceiroRetiradas Boolean @default(false)
+  acessaAnalise             Boolean @default(false)
+  // Concede acesso à tela Equipe (ver colegas, sem poder convidar/alterar
+  // permissões — isso continua exclusivo do dono).
+  acessaEquipe              Boolean @default(false)
+}
+
+// Um registro por acesso de um "consultor" a uma clínica — a própria
+// existência de ao menos um registro para o par (usuarioId, clinicaId) é o
+// que concede o acesso; o registro mais recente também alimenta o banner
+// "Consultor visualizou em [data/hora]" exibido para dono/equipe.
+model ConsultorAcesso {
+  id         String   @id @default(cuid())
+  usuarioId  String
+  usuario    Usuario  @relation(fields: [usuarioId], references: [id])
+  clinicaId  String
+  clinica    Clinica  @relation(fields: [clinicaId], references: [id])
+  dataAcesso DateTime @default(now())
+}
+
+// Anotação de um consultor sobre uma clínica específica — visível para o
+// consultor e para o dono daquela clínica (seção "Anotações do Consultor").
+// Só o consultor cria; dono e consultor podem marcar como resolvida.
+model AnotacaoConsultor {
+  id        String   @id @default(cuid())
+  clinicaId String
+  clinica   Clinica  @relation(fields: [clinicaId], references: [id])
+  autorId   String // Usuario consultor que escreveu
+  texto     String
+  resolvida Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model PerfilTributario {
+  id        String    @id @default(cuid())
+  nome      String
+  aliquota  Float // percentual, ex: 8.0 = 8%
+  clinicaId String
+  clinica   Clinica   @relation(fields: [clinicaId], references: [id])
+  produtos  Produto[]
+}
+
+enum ComissaoTipo {
+  percentual
+  fixo
+}
+
+model Produto {
+  id                 String             @id @default(cuid())
+  nome               String
+  precoVenda         Float
+  custoMedioMaterial Float
+  duracaoMinutos     Int
+  comissaoTipo       ComissaoTipo
+  comissaoValor      Float
+  // Número mínimo de produtos/procedimentos costumeiramente executados em
+  // paralelo no mesmo espaço/horário. Usado futuramente para ratear custo de
+  // estrutura por hora; hoje é apenas armazenado, sem entrar em nenhum cálculo.
+  divisorCustoEspaco Int                @default(1)
+  perfilTributarioId String
+  perfilTributario   PerfilTributario   @relation(fields: [perfilTributarioId], references: [id])
+  clinicaId          String
+  clinica            Clinica            @relation(fields: [clinicaId], references: [id])
+  entradasSaida      EntradaSaida[]
+  movimentosEstoque  EstoqueMovimento[]
+  planoItens         PlanoItem[]
+  planoModeloItens   PlanoModeloItem[]
+  // Itens do protocolo quando este produto É um protocolo (produto composto).
+  protocoloItens     ProtocoloItem[]    @relation("ProtocoloItens")
+  // Protocolos de outros produtos que usam este produto como material/insumo.
+  usadoComoMaterial  ProtocoloItem[]    @relation("MaterialUsado")
+  createdAt          DateTime           @default(now())
+}
+
+// Um material (outro Produto) consumido por um Produto "protocolo" — ex: o
+// protocolo "Harmonização Facial" usa Toxina, Preenchedor e Skinbooster,
+// cada um com sua própria quantidade consumida.
+model ProtocoloItem {
+  id           String  @id @default(cuid())
+  produtoPaiId String
+  produtoPai   Produto @relation("ProtocoloItens", fields: [produtoPaiId], references: [id], onDelete: Cascade)
+  materialId   String
+  material     Produto @relation("MaterialUsado", fields: [materialId], references: [id])
+  quantidade   Float
+}
+
+model EntradaSaida {
+  id                      String                 @id @default(cuid())
+  tipo                    String // "entrada" ou "saida"
+  categoria               String // ex: "Material", "Aluguel", "Midia", "Salario", livre
+  valor                   Float
+  data                    DateTime
+  descricao               String?
+  // Preenchido quando categoria = "Prestador de Serviço".
+  nomePrestador           String?
+  parcelas                Parcela[]
+  // Presente quando este registro foi gerado automaticamente para uma
+  // parcela mensal de uma Divida marcada como "em_pagamento". Cada parcela
+  // mensal vira o seu próprio EntradaSaida (valor = valorParcela daquele
+  // mês), nunca o valor total da dívida.
+  dividaId                String?
+  divida                  Divida?                @relation(fields: [dividaId], references: [id])
+  // Referência opcional ao produto vendido, usada na Composição do
+  // Faturamento (aba Análise). Só faz sentido em entradas de venda.
+  produtoId               String?
+  produto                 Produto?               @relation(fields: [produtoId], references: [id])
+  // Cliente vinculado a uma venda (aba Clientes).
+  clienteId               String?
+  cliente                 Cliente?               @relation(fields: [clienteId], references: [id])
+  // Quando marcar o próximo retorno esperado desse cliente.
+  dataProximoRetorno      DateTime?
+  // Legado: nome de quem fechou a venda como texto livre, de antes de
+  // existir cadastro de usuários. Mantido para não perder o dado de vendas
+  // antigas; vendas novas preenchem fechadoPorUsuarioId.
+  fechadoPor              String?
+  fechadoPorUsuarioId     String?
+  fechadoPorUsuario       Usuario?               @relation("FechadoPor", fields: [fechadoPorUsuarioId], references: [id])
+  // Presente quando este registro foi gerado (automaticamente, mês a mês)
+  // como o salário de um Funcionario ativo. Uma vez criado para um
+  // (funcionarioId, periodoChave), a geração automática nunca mais recria
+  // nem sobrescreve esse registro — permitindo edição pontual do valor (ou
+  // até da própria data) daquela ocorrência sem alterar Funcionario.valorMensal.
+  funcionarioId           String?
+  funcionario             Funcionario?           @relation(fields: [funcionarioId], references: [id])
+  // Presente quando este registro veio de uma DespesaAdministrativa —
+  // recorrente (gerado automaticamente a cada intervalo, a partir de
+  // dataInicio) ou avulsa (criado uma única vez, na data informada). Mesma
+  // regra de não sobrescrita que funcionarioId.
+  despesaAdministrativaId String?
+  despesaAdministrativa   DespesaAdministrativa? @relation(fields: [despesaAdministrativaId], references: [id])
+  // Identifica o período de um lançamento automático — "AAAA-MM" para o
+  // salário mensal de um Funcionario, a data de ocorrência original
+  // ("AAAA-MM-DD") para uma DespesaAdministrativa recorrente — e nunca a
+  // sua `data`, que pode ser editada pontualmente sem gerar duplicata. Nulo
+  // em qualquer lançamento que não seja automático.
+  periodoChave            String?
+  clinicaId               String
+  clinica                 Clinica                @relation(fields: [clinicaId], references: [id])
+  createdAt               DateTime               @default(now())
+
+  // Constraints não-parciais: Postgres trata cada NULL como distinto, então
+  // isso só restringe de fato as linhas que TÊM o respectivo id preenchido
+  // (a maioria das linhas, com ambos nulos, nunca conflita) — é o que
+  // garante a geração automática idempotente via createMany+skipDuplicates.
+  @@unique([funcionarioId, periodoChave])
+  @@unique([despesaAdministrativaId, periodoChave])
+}
+
+// Um funcionário (CLT ou PJ) da clínica, cujo custo mensal entra
+// automaticamente no Financeiro como um EntradaSaida de salário. Desligar um
+// funcionário marca ativo=false (a geração automática para futuras
+// ocorrências), sem apagar o histórico já lançado.
+model Funcionario {
+  id           String   @id @default(cuid())
+  nome         String
+  tipoContrato String // "CLT" ou "PJ"
+  valorMensal  Float
+  // Vincula a um Usuario da Equipe, se esse funcionário também tem acesso
+  // ao sistema — opcional, e independente do cadastro de folha em si.
+  usuarioId    String?  @unique
+  usuario      Usuario? @relation(fields: [usuarioId], references: [id])
+  ativo        Boolean  @default(true)
+  clinicaId    String
+  clinica      Clinica  @relation(fields: [clinicaId], references: [id])
+  createdAt    DateTime @default(now())
+
+  entradasSaida EntradaSaida[]
+}
+
+// Uma despesa administrativa fixa da clínica — avulsa (uma ocorrência, na
+// `data` informada) ou recorrente (uma ocorrência a cada `frequencia`, a
+// partir de `dataInicio`, gerada automaticamente enquanto ativo=true).
+model DespesaAdministrativa {
+  id         String    @id @default(cuid())
+  nome       String
+  recorrente Boolean   @default(false)
+  // "semanal", "quinzenal", "mensal" ou "60dias" — obrigatório se recorrente.
+  frequencia String?
+  valor      Float
+  // Usada se recorrente=true, para calcular a próxima geração.
+  dataInicio DateTime?
+  // Usada se recorrente=false (despesa avulsa).
+  data       DateTime?
+  // "pago" ou "pendente" — relevante apenas para despesa avulsa.
+  status     String    @default("pendente")
+  ativo      Boolean   @default(true)
+  clinicaId  String
+  clinica    Clinica   @relation(fields: [clinicaId], references: [id])
+  createdAt  DateTime  @default(now())
+
+  entradasSaida EntradaSaida[]
+}
+
+model Cliente {
+  id                       String         @id @default(cuid())
+  nome                     String
+  contato                  String?
+  // Opcional, para uso futuro em campanhas de e-mail.
+  email                    String?
+  cpf                      String?
+  dataNascimento           DateTime?
+  // Preenchida manualmente ou auto-calculada como a data da primeira
+  // Entrada vinculada a esse cliente.
+  dataPrimeiroProcedimento DateTime?
+  observacoes              String?
+  // ex: "Instagram", "Indicação", "Google", "Walk-in" — texto livre com sugestões
+  origem                   String?
+  indicadoPorId            String?
+  indicadoPor              Cliente?       @relation("Indicacoes", fields: [indicadoPorId], references: [id])
+  indicados                Cliente[]      @relation("Indicacoes")
+  entradasSaida            EntradaSaida[]
+  planos                   Plano[]
+  clinicaId                String
+  clinica                  Clinica        @relation(fields: [clinicaId], references: [id])
+  createdAt                DateTime       @default(now())
+}
+
+// Molde reutilizável de plano: um nome e uma lista de itens (produto +
+// quantidade de sessões + valor + intervalo) que pré-preenche a criação de
+// um Plano de verdade, sem gerar nenhuma Sessao por si só.
+model PlanoModelo {
+  id        String            @id @default(cuid())
+  nome      String
+  itens     PlanoModeloItem[]
+  clinicaId String
+  clinica   Clinica           @relation(fields: [clinicaId], references: [id])
+  createdAt DateTime          @default(now())
+}
+
+model PlanoModeloItem {
+  id                String      @id @default(cuid())
+  planoModeloId     String
+  planoModelo       PlanoModelo @relation(fields: [planoModeloId], references: [id], onDelete: Cascade)
+  produtoId         String
+  produto           Produto     @relation(fields: [produtoId], references: [id])
+  quantidadeSessoes Int
+  valorItem         Float
+  intervaloDias     Int
+}
+
+model Plano {
+  id         String      @id @default(cuid())
+  clienteId  String?
+  cliente    Cliente?    @relation(fields: [clienteId], references: [id])
+  // Nome dado pelo usuário, ex: "Full 6 Meses - Maria".
+  nome       String
+  // Soma automática dos valorItem dos itens no momento da criação.
+  valorTotal Float
+  dataVenda  DateTime
+  clinicaId  String
+  clinica    Clinica     @relation(fields: [clinicaId], references: [id])
+  createdAt  DateTime    @default(now())
+  itens      PlanoItem[]
+}
+
+model PlanoItem {
+  id                String   @id @default(cuid())
+  planoId           String
+  plano             Plano    @relation(fields: [planoId], references: [id], onDelete: Cascade)
+  produtoId         String
+  produto           Produto  @relation(fields: [produtoId], references: [id])
+  quantidadeSessoes Int
+  // Valor cobrado por este item, digitado pelo usuário — não é o preço de
+  // catálogo do produto.
+  valorItem         Float
+  // ex: 7 (semanal), 14 (quinzenal), 30 (mensal), 60 — espaçamento entre
+  // as sessões deste item, em dias.
+  intervaloDias     Int
+  sessoes           Sessao[]
+}
+
+model Sessao {
+  id           String    @id @default(cuid())
+  planoItemId  String
+  planoItem    PlanoItem @relation(fields: [planoItemId], references: [id], onDelete: Cascade)
+  numero       Int // 1, 2, 3, 4...
+  dataPrevista DateTime
+  // "pendente", "entregue", "perdida" ou "postergada"
+  status       String
+  // Preenchida quando marcada como entregue.
+  dataEntregue DateTime?
+}
+
+model Parcela {
+  id             String       @id @default(cuid())
+  entradaSaidaId String
+  entradaSaida   EntradaSaida @relation(fields: [entradaSaidaId], references: [id])
+  numeroParcela  Int
+  valor          Float
+  dataVencimento DateTime
+  status         String // "pendente" ou "pago"
+  clinicaId      String
+  clinica        Clinica      @relation(fields: [clinicaId], references: [id])
+}
+
+model MetaLucroMensal {
+  id        String  @id @default(cuid())
+  mes       String // "YYYY-MM"
+  valor     Float
+  clinicaId String
+  clinica   Clinica @relation(fields: [clinicaId], references: [id])
+
+  @@unique([clinicaId, mes])
+}
+
+model MetaDoMes {
+  id            String  @id @default(cuid())
+  mesReferencia String // "YYYY-MM"
+  valorMeta     Float
+  clinicaId     String
+  clinica       Clinica @relation(fields: [clinicaId], references: [id])
+
+  @@unique([clinicaId, mesReferencia])
+}
+
+model EstoqueMovimento {
+  id         String   @id @default(cuid())
+  produtoId  String
+  produto    Produto  @relation(fields: [produtoId], references: [id])
+  tipo       String // "entrada" ou "saida"
+  quantidade Int
+  data       DateTime
+  descricao  String? // ex: "avaria", "compra", "uso em atendimento"
+  clinicaId  String
+  clinica    Clinica  @relation(fields: [clinicaId], references: [id])
+}
+
+model Retirada {
+  id         String   @id @default(cuid())
+  valor      Float
+  data       DateTime
+  descricao  String?
+  // "rotina", "imprevisto", "investimento" ou "outro" — em destaque no
+  // formulário, mas sempre preenchido (default "rotina" se pulado).
+  motivo     String   @default("rotina")
+  // Texto livre opcional — ex: o que motivou uma retirada fora do padrão.
+  observacao String?
+  clinicaId  String
+  clinica    Clinica  @relation(fields: [clinicaId], references: [id])
+  createdAt  DateTime @default(now())
+}
+
+model Divida {
+  id             String         @id @default(cuid())
+  valor          Float
+  dataVencimento DateTime
+  numeroParcelas Int? // opcional
+  descricao      String?
+  // "em_pagamento" ou "nao_estruturada"
+  status         String         @default("nao_estruturada")
+  // Valor de cada parcela mensal; obrigatório se status = "em_pagamento".
+  valorParcela   Float?
+  // Um EntradaSaida (categoria "Dívida") por parcela mensal, gerados
+  // automaticamente quando status = "em_pagamento".
+  entradasSaida  EntradaSaida[]
+  clinicaId      String
+  clinica        Clinica        @relation(fields: [clinicaId], references: [id])
+  createdAt      DateTime       @default(now())
+}
