@@ -1,7 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { exigirSessaoPagina } from "@/lib/auth";
 import { runWithTenant } from "@/lib/tenant-context";
+import { lerModulosAtivos } from "@/lib/modulos";
 import { EditarClinicaForm } from "@/components/equipe/editar-clinica-form";
+import { ModulosAvancadosForm } from "@/components/equipe/modulos-avancados-form";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +24,10 @@ async function MinhaClinicaPageConteudo(clinicaId: string) {
         </p>
       </header>
 
-      <EditarClinicaForm nomeAtual={clinica.nome} />
+      <div className="flex flex-col gap-6">
+        <EditarClinicaForm nomeAtual={clinica.nome} />
+        <ModulosAvancadosForm modulosAtuais={lerModulosAtivos(clinica.modulosAtivos)} />
+      </div>
     </main>
   );
 }

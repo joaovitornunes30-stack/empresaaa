@@ -49,11 +49,13 @@ export function ClientesTable({
   produtos,
   usuarios,
   modelos,
+  planosAtivo,
 }: {
   clientes: ClienteLinha[];
   produtos: { id: string; nome: string }[];
   usuarios: { id: string; nome: string }[];
   modelos: PlanoModeloOpcao[];
+  planosAtivo: boolean;
 }) {
   if (clientes.length === 0) {
     return (
@@ -117,6 +119,7 @@ export function ClientesTable({
                     usuarios={usuarios}
                     modelos={modelos}
                     nomeCliente={cliente.nome}
+                    planosAtivo={planosAtivo}
                     compact
                   />
                 </td>

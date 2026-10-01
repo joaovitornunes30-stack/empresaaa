@@ -6,18 +6,21 @@ import { PlanoCard } from "@/components/clientes/plano-card";
 import { NovoPlanoButton } from "@/components/clientes/novo-plano-button";
 import { exigirSessaoAba } from "@/lib/permissoes";
 import { runWithTenant } from "@/lib/tenant-context";
+import { lerModulosAtivos } from "@/lib/modulos";
 
 export const dynamic = "force-dynamic";
 
 export default async function PlanosPage() {
   const sessao = await exigirSessaoAba("clientes");
-  return runWithTenant(sessao, () => PlanosPageConteudo(sessao.papel === "consultor"));
+  return runWithTenant(sessao, () =>
+    PlanosPageConteudo(sessao.clinicaId, sessao.papel === "consultor"),
+  );
 }
 
-async function PlanosPageConteudo(somenteLeitura: boolean) {
+async function PlanosPageConteudo(clinicaId: string, somenteLeitura: boolean) {
   const mes = mesAtual();
 
-  const [planos, produtos, clientes, modelos] = await Promise.all([
+  const [planos, produtos, clientes, modelos, clinica] = await Promise.all([
     prisma.plano.findMany({
       orderBy: { dataVenda: "desc" },
       include: {
@@ -44,7 +47,10 @@ async function PlanosPageConteudo(somenteLeitura: boolean) {
       orderBy: { nome: "asc" },
       include: { itens: { select: { produtoId: true, quantidadeSessoes: true, valorItem: true, intervaloDias: true } } },
     }),
+    prisma.clinica.findUniqueOrThrow({ where: { id: clinicaId }, select: { modulosAtivos: true } }),
   ]);
+
+  const modulosAtivos = lerModulosAtivos(clinica.modulosAtivos);
 
   const planosParaResumo: PlanoParaResumo[] = planos.map((plano) => ({
     itens: plano.itens.map((item) => ({
@@ -81,7 +87,7 @@ async function PlanosPageConteudo(somenteLeitura: boolean) {
           >
             Modelos de Plano
           </Link>
-          {!somenteLeitura && (
+          {!somenteLeitura && modulosAtivos.planos && (
             <NovoPlanoButton produtos={produtos} modelos={modelos} clientes={clientes} />
           )}
         </div>

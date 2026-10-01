@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { comSessao, criarSessao, lerSessao, type ActionState } from "@/lib/auth";
+import type { ModulosAtivos } from "@/lib/modulos";
 
 export type { ActionState };
 
@@ -31,5 +32,28 @@ export const editarClinica = comSessao(["dono"], async (ctx, _prevState, formDat
   }
 
   revalidatePath("/minha-clinica");
+  return { error: null };
+});
+
+/**
+ * Modo Simples: liga/desliga os módulos avançados opcionais da clínica.
+ * Nunca apaga dado nenhum — só controla o que aparece para criar.
+ */
+export const atualizarModulosAtivos = comSessao(["dono"], async (ctx, _prevState, formData) => {
+  const modulosAtivos: ModulosAtivos = {
+    planos: formData.get("planos") === "on",
+    protocolo: formData.get("protocolo") === "on",
+    indicacoes: formData.get("indicacoes") === "on",
+  };
+
+  await prisma.clinica.update({
+    where: { id: ctx.clinicaId },
+    data: { modulosAtivos },
+  });
+
+  revalidatePath("/minha-clinica");
+  revalidatePath("/clientes");
+  revalidatePath("/clientes/planos");
+  revalidatePath("/produtos");
   return { error: null };
 });

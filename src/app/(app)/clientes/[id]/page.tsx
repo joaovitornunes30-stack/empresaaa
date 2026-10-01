@@ -8,6 +8,7 @@ import { EditarClienteButton } from "@/components/clientes/novo-cliente-button";
 import { AcaoClienteButton } from "@/components/clientes/acao-cliente-button";
 import { exigirSessaoAba } from "@/lib/permissoes";
 import { runWithTenant } from "@/lib/tenant-context";
+import { lerModulosAtivos } from "@/lib/modulos";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +23,7 @@ export default async function ClienteDetalhePage(
 }
 
 async function ClienteDetalhePageConteudo(id: string, clinicaId: string, somenteLeitura: boolean) {
-  const [cliente, produtos, todosClientes, usuarios, modelos] = await Promise.all([
+  const [cliente, produtos, todosClientes, usuarios, modelos, clinica] = await Promise.all([
     prisma.cliente.findUnique({
       where: { id },
       include: {
@@ -49,9 +50,12 @@ async function ClienteDetalhePageConteudo(id: string, clinicaId: string, somente
       orderBy: { nome: "asc" },
       include: { itens: { select: { produtoId: true, quantidadeSessoes: true, valorItem: true, intervaloDias: true } } },
     }),
+    prisma.clinica.findUniqueOrThrow({ where: { id: clinicaId }, select: { modulosAtivos: true } }),
   ]);
 
   if (!cliente) notFound();
+
+  const modulosAtivos = lerModulosAtivos(clinica.modulosAtivos);
 
   const valorTotalGasto = calcularValorTotalGasto(cliente.entradasSaida);
 
@@ -105,6 +109,7 @@ async function ClienteDetalhePageConteudo(id: string, clinicaId: string, somente
             produtos={produtos}
             usuarios={usuarios}
             modelos={modelos}
+            planosAtivo={modulosAtivos.planos}
           />
         )}
       </header>

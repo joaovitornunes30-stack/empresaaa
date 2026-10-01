@@ -12,6 +12,7 @@ export function AcaoClienteButton({
   usuarios,
   modelos,
   compact,
+  planosAtivo,
 }: {
   clienteId: string;
   nomeCliente?: string;
@@ -19,6 +20,7 @@ export function AcaoClienteButton({
   usuarios: { id: string; nome: string }[];
   modelos: PlanoModeloOpcao[];
   compact?: boolean;
+  planosAtivo: boolean;
 }) {
   const [modalAberto, setModalAberto] = useState<"escolha" | "venda" | "plano" | null>(null);
 
@@ -26,15 +28,15 @@ export function AcaoClienteButton({
     <>
       <button
         type="button"
-        onClick={() => setModalAberto("escolha")}
-        title={compact ? "Nova venda ou plano" : undefined}
+        onClick={() => setModalAberto(planosAtivo ? "escolha" : "venda")}
+        title={compact ? (planosAtivo ? "Nova venda ou plano" : "Nova venda") : undefined}
         className={
           compact
             ? "flex h-8 w-8 items-center justify-center rounded-full bg-primary text-base font-semibold text-primary-foreground transition-colors hover:bg-primary-dark"
             : "rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary-dark"
         }
       >
-        {compact ? "+" : "+ Nova Venda ou Plano"}
+        {compact ? "+" : planosAtivo ? "+ Nova Venda ou Plano" : "+ Nova Venda"}
       </button>
 
       {modalAberto === "escolha" && (
@@ -53,16 +55,18 @@ export function AcaoClienteButton({
                 Lançamento simples de uma venda avulsa.
               </span>
             </button>
-            <button
-              type="button"
-              onClick={() => setModalAberto("plano")}
-              className="rounded-xl border border-border px-4 py-3 text-left transition-colors hover:border-primary hover:bg-primary/5"
-            >
-              <span className="block text-sm font-semibold text-foreground">Novo Plano</span>
-              <span className="block text-xs text-foreground/60">
-                Pacote com múltiplos produtos/sessões, com ou sem modelo.
-              </span>
-            </button>
+            {planosAtivo && (
+              <button
+                type="button"
+                onClick={() => setModalAberto("plano")}
+                className="rounded-xl border border-border px-4 py-3 text-left transition-colors hover:border-primary hover:bg-primary/5"
+              >
+                <span className="block text-sm font-semibold text-foreground">Novo Plano</span>
+                <span className="block text-xs text-foreground/60">
+                  Pacote com múltiplos produtos/sessões, com ou sem modelo.
+                </span>
+              </button>
+            )}
           </div>
         </Modal>
       )}
@@ -76,7 +80,7 @@ export function AcaoClienteButton({
           onClose={() => setModalAberto(null)}
         />
       )}
-      {modalAberto === "plano" && (
+      {modalAberto === "plano" && planosAtivo && (
         <PlanoModalForm
           clienteId={clienteId}
           nomeCliente={nomeCliente}

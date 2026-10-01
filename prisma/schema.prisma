@@ -38,6 +38,11 @@ model Clinica {
   // Valor mensal de pró-labore combinado com o dono/consultor — usado como
   // referência de retirada saudável enquanto não há 3 meses fechados.
   proLaboreCombinado        Float?
+  // Módulos avançados opcionais (Modo Simples): { planos, protocolo,
+  // indicacoes }, todos desligados por padrão numa clínica nova. Desligar
+  // um módulo só esconde a interface de criação — nenhum dado existente é
+  // apagado nem para de contar nos cálculos. Ver lib/modulos.ts.
+  modulosAtivos             Json                    @default("{\"planos\":false,\"protocolo\":false,\"indicacoes\":false}")
 }
 
 // "dono": acesso total à própria clínica, fixo, não editável. "membro":

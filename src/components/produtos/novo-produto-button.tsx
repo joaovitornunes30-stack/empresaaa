@@ -28,9 +28,11 @@ function criarItemProtocoloVazio(): ItemProtocoloForm {
 export function NovoProdutoButton({
   perfis,
   materiaisDisponiveis,
+  protocoloAtivo,
 }: {
   perfis: { id: string; nome: string; aliquota: number }[];
   materiaisDisponiveis: MaterialDisponivel[];
+  protocoloAtivo: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [state, formAction, pending] = useActionState(
@@ -183,6 +185,7 @@ export function NovoProdutoButton({
               />
             </div>
 
+            {protocoloAtivo && (
             <div className="rounded-xl border border-border p-3">
               <label className="flex items-center gap-2 text-sm font-medium text-foreground/80">
                 <input
@@ -278,8 +281,9 @@ export function NovoProdutoButton({
                 </div>
               )}
             </div>
+            )}
 
-            {isProtocolo && (
+            {protocoloAtivo && isProtocolo && (
               <>
                 <input type="hidden" name="custoMedioMaterial" value="0" />
                 <input

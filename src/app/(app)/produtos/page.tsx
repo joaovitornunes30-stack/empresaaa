@@ -3,17 +3,18 @@ import { ProdutosTable } from "@/components/produtos/produtos-table";
 import { NovoProdutoButton } from "@/components/produtos/novo-produto-button";
 import { PerfisTributariosManager } from "@/components/produtos/perfis-tributarios-manager";
 import { exigirSessaoAba } from "@/lib/permissoes";
-import { runWithTenant } from "@/lib/tenant-context";
+import { runWithTenant, type TenantContext } from "@/lib/tenant-context";
+import { lerModulosAtivos } from "@/lib/modulos";
 
 export const dynamic = "force-dynamic";
 
 export default async function ProdutosPage() {
   const sessao = await exigirSessaoAba("produtos");
-  return runWithTenant(sessao, () => ProdutosPageConteudo(sessao.papel === "dono"));
+  return runWithTenant(sessao, () => ProdutosPageConteudo(sessao, sessao.papel === "dono"));
 }
 
-async function ProdutosPageConteudo(podeEditar: boolean) {
-  const [produtos, perfis] = await Promise.all([
+async function ProdutosPageConteudo(sessao: TenantContext, podeEditar: boolean) {
+  const [produtos, perfis, clinica] = await Promise.all([
     prisma.produto.findMany({
       include: {
         perfilTributario: true,
@@ -24,7 +25,10 @@ async function ProdutosPageConteudo(podeEditar: boolean) {
       orderBy: { createdAt: "desc" },
     }),
     prisma.perfilTributario.findMany({ orderBy: { nome: "asc" } }),
+    prisma.clinica.findUniqueOrThrow({ where: { id: sessao.clinicaId }, select: { modulosAtivos: true } }),
   ]);
+
+  const modulosAtivos = lerModulosAtivos(clinica.modulosAtivos);
 
   // Só produtos que não são, eles mesmos, um protocolo podem ser usados como
   // material de um protocolo (evita protocolo aninhado).
@@ -47,7 +51,11 @@ async function ProdutosPageConteudo(podeEditar: boolean) {
         {podeEditar && (
           <div className="flex items-center gap-3">
             <PerfisTributariosManager perfis={perfis} />
-            <NovoProdutoButton perfis={perfis} materiaisDisponiveis={materiaisDisponiveis} />
+            <NovoProdutoButton
+              perfis={perfis}
+              materiaisDisponiveis={materiaisDisponiveis}
+              protocoloAtivo={modulosAtivos.protocolo}
+            />
           </div>
         )}
       </header>

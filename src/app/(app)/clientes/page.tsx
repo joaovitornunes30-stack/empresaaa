@@ -14,6 +14,7 @@ import { PacientesDistantes } from "@/components/clientes/pacientes-distantes";
 import { RankingIndicacoes } from "@/components/clientes/ranking-indicacoes";
 import { exigirSessaoAba } from "@/lib/permissoes";
 import { runWithTenant } from "@/lib/tenant-context";
+import { lerModulosAtivos } from "@/lib/modulos";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +26,7 @@ export default async function ClientesPage() {
 }
 
 async function ClientesPageConteudo(clinicaId: string, somenteLeitura: boolean) {
-  const [clientes, produtos, usuarios, modelos] = await Promise.all([
+  const [clientes, produtos, usuarios, modelos, clinica] = await Promise.all([
     prisma.cliente.findMany({
       orderBy: { nome: "asc" },
       include: {
@@ -43,7 +44,10 @@ async function ClientesPageConteudo(clinicaId: string, somenteLeitura: boolean) 
       orderBy: { nome: "asc" },
       include: { itens: { select: { produtoId: true, quantidadeSessoes: true, valorItem: true, intervaloDias: true } } },
     }),
+    prisma.clinica.findUniqueOrThrow({ where: { id: clinicaId }, select: { modulosAtivos: true } }),
   ]);
+
+  const modulosAtivos = lerModulosAtivos(clinica.modulosAtivos);
 
   const linhasTabela = clientes.map((cliente) => ({
     id: cliente.id,
@@ -111,15 +115,18 @@ async function ClientesPageConteudo(clinicaId: string, somenteLeitura: boolean) 
           produtos={produtos}
           usuarios={usuarios}
           modelos={modelos}
+          planosAtivo={modulosAtivos.planos}
         />
       </div>
 
-      <div>
-        <h2 className="mb-3 font-display text-base font-semibold text-foreground">
-          Indicações
-        </h2>
-        <RankingIndicacoes ranking={ranking} />
-      </div>
+      {modulosAtivos.indicacoes && (
+        <div>
+          <h2 className="mb-3 font-display text-base font-semibold text-foreground">
+            Indicações
+          </h2>
+          <RankingIndicacoes ranking={ranking} />
+        </div>
+      )}
     </main>
   );
 }
