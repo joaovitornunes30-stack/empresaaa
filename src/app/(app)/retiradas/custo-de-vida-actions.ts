@@ -20,10 +20,11 @@ const custoDeVidaSchema = z.object({
 });
 
 /**
- * Só o próprio dono salva o próprio custo de vida — ctx.usuarioId nunca é
- * escolhido pelo formulário, sempre vem da sessão (ver lib/custo-de-vida.ts).
+ * Só o próprio dono salva o próprio custo de vida — salvarMeuCustoDeVida
+ * nem aceita um usuarioId do chamador, lê sempre da sessão ativa (ver
+ * lib/custo-de-vida.ts).
  */
-export const salvarCustoDeVida = comSessao(["dono"], async (ctx, _prevState, formData) => {
+export const salvarCustoDeVida = comSessao(["dono"], async (_ctx, _prevState, formData) => {
   const parsed = custoDeVidaSchema.safeParse({
     preciso: formData.get("preciso"),
     quero: formData.get("quero"),
@@ -40,7 +41,7 @@ export const salvarCustoDeVida = comSessao(["dono"], async (ctx, _prevState, for
 
   const { preciso, quero, moradia, gastosBasicos, cartao, outros, ativo } = parsed.data;
 
-  await salvarMeuCustoDeVida(ctx.usuarioId, ctx.clinicaId, {
+  await salvarMeuCustoDeVida({
     preciso,
     quero,
     moradia: moradia ?? null,

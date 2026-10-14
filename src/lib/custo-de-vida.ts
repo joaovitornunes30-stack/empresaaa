@@ -1,9 +1,13 @@
 import { prisma } from "@/lib/prisma";
+import { tenantAtual } from "@/lib/tenant-context";
 
 /**
  * ÚNICO arquivo do app que consulta o modelo CustoDeVida. Regra rígida de
  * privacidade: cada dono só lê/escreve o PRÓPRIO registro — nenhuma função
- * aqui aceita um usuarioId arbitrário para leitura/escrita individual.
+ * aqui aceita um usuarioId como parâmetro vindo do chamador. O usuarioId
+ * usado é sempre o de tenantAtual() (contexto do servidor, derivado só da
+ * sessão autenticada — nunca de um form/argumento) — não existe caminho
+ * para pedir o registro de outra pessoa, nem por engano em código futuro.
  * A única consulta que olha para mais de um dono (buscarSomaCustoDeVidaAtivo)
  * nunca retorna uma linha, só a soma agregada de quem ativou o interruptor.
  */
@@ -28,17 +32,15 @@ const CAMPOS: Record<keyof CustoDeVidaDados, true> = {
   ativo: true,
 };
 
-/** O custo de vida do próprio chamador — nunca de outro usuário. */
-export async function buscarMeuCustoDeVida(usuarioId: string): Promise<CustoDeVidaDados | null> {
+/** O custo de vida do usuário da sessão atual — nunca de outro usuário. */
+export async function buscarMeuCustoDeVida(): Promise<CustoDeVidaDados | null> {
+  const { usuarioId } = tenantAtual();
   return prisma.custoDeVida.findUnique({ where: { usuarioId }, select: CAMPOS });
 }
 
-/** Salva o custo de vida do próprio chamador — nunca de outro usuário. */
-export async function salvarMeuCustoDeVida(
-  usuarioId: string,
-  clinicaId: string,
-  dados: CustoDeVidaDados,
-): Promise<void> {
+/** Salva o custo de vida do usuário da sessão atual — nunca de outro usuário. */
+export async function salvarMeuCustoDeVida(dados: CustoDeVidaDados): Promise<void> {
+  const { usuarioId, clinicaId } = tenantAtual();
   await prisma.custoDeVida.upsert({
     where: { usuarioId },
     create: { usuarioId, clinicaId, ...dados },

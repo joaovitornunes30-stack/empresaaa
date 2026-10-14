@@ -79,7 +79,7 @@ async function RetiradasPageConteudo(sessao: TenantContext) {
 
   if (souDono) {
     const [meuCustoDeVidaDados, somaCustoDeVida, mediaFinanceira] = await Promise.all([
-      buscarMeuCustoDeVida(sessao.usuarioId),
+      buscarMeuCustoDeVida(),
       buscarSomaCustoDeVidaAtivo(sessao.clinicaId),
       calcularMediaFinanceira3Meses(hoje),
     ]);

@@ -87,10 +87,11 @@ export async function calcularCaixaLivre(
   reservaMesesCustoFixo: number,
   hoje: Date = new Date(),
 ): Promise<ResultadoCaixaLivre> {
-  const [todasEntradasSaidas, saidasProgramadas, custoFixoMedio] = await Promise.all([
+  const [todasEntradasSaidas, saidasProgramadas, custoFixoMedio, quantidadeDividasNaoEstruturadas] = await Promise.all([
     prisma.entradaSaida.findMany({ select: { tipo: true, valor: true } }),
     calcularSaidasProgramadas(horizonteDias, hoje),
     calcularCustoFixoMedio3MesesFechados(hoje),
+    prisma.divida.count({ where: { status: "nao_estruturada" } }),
   ]);
 
   const saldoAtual = calcularSaldoAtual(todasEntradasSaidas);
@@ -104,5 +105,6 @@ export async function calcularCaixaLivre(
     reservaMinimaCalculada: custoFixoMedio !== null,
     caixaLivre,
     horizonteDias,
+    temDividaNaoEstruturada: quantidadeDividasNaoEstruturadas > 0,
   };
 }

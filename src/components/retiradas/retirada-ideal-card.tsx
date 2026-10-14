@@ -139,6 +139,11 @@ export function RetiradaIdealCard({
               <p className={`mt-1 font-display text-xl font-bold ${resultado.caixaLivre.caixaLivre < 0 ? "text-muted-red" : "text-foreground"}`}>
                 {formatarMoeda(resultado.caixaLivre.caixaLivre)}
               </p>
+              {resultado.caixaLivre.temDividaNaoEstruturada && (
+                <p className="mt-1 text-xs font-medium text-accent">
+                  Há dívida sem parcelamento que não entrou neste cálculo.
+                </p>
+              )}
             </div>
           </div>
 

@@ -13,6 +13,11 @@ export type ResultadoCaixaLivre = {
   reservaMinimaCalculada: boolean;
   caixaLivre: number;
   horizonteDias: number;
+  // true quando existe ao menos uma Divida "nao_estruturada" (sem
+  // parcelamento) — ela não entra em "saídas já programadas" (não tem
+  // Parcela nenhuma gerada ainda), então o Caixa livre pode estar
+  // otimista. Puramente informativo: nunca altera a conta.
+  temDividaNaoEstruturada: boolean;
 };
 
 export type RetiradaIdealResultado =
@@ -56,10 +61,13 @@ export function calcularRetiradaIdeal(
 export type EstadoSemaforoIdeal = "verde" | "laranja" | "vermelho" | "cinza";
 
 /**
- * O semáforo passa a comparar o retirado no mês com a Retirada ideal
- * (verde até ela). O teto de "laranja" continua sendo a retirada máxima
- * já existente — acima dela é sempre vermelho, mesmo que o caixa livre
- * sozinho permitisse mais.
+ * O semáforo deriva sempre da Retirada ideal — nunca um estado que
+ * contradiga "Não retire agora". Se a retirada ideal é 0 (caixa livre
+ * negativo, ou sobra média que zera a retirada saudável), o estado é
+ * sempre vermelho, mesmo que ainda não tenha sido retirado nada no mês.
+ * Só quando a ideal é positiva existe uma faixa verde/laranja/vermelho,
+ * com o teto de "laranja" na retirada máxima já existente (que nunca fica
+ * abaixo da ideal, então não há contradição possível aí).
  */
 export function calcularSemaforoRetiradaIdeal(
   resultado: RetiradaIdealResultado,
@@ -67,8 +75,11 @@ export function calcularSemaforoRetiradaIdeal(
   totalRetiradoMes: number,
 ): EstadoSemaforoIdeal {
   if (resultado.estado === "sem_dado") return "cinza";
+  if (resultado.estado === "nao_retire_agora") return "vermelho";
 
-  const ideal = resultado.estado === "nao_retire_agora" ? 0 : resultado.retiradaIdeal;
+  const ideal = resultado.retiradaIdeal;
+  if (ideal <= 0) return "vermelho";
+
   const maxima = estadoSaudavel.estado === "sem_historico_sem_prolabore" ? ideal : estadoSaudavel.retiradaMaxima;
 
   if (totalRetiradoMes <= ideal) return "verde";
