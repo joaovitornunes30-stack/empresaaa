@@ -8,15 +8,21 @@ type Retirada = {
   descricao: string | null;
   motivo: string;
   observacao: string | null;
+  usuarioId: string | null;
 };
 
 export function RetiradasTable({
   retiradas,
   destacadas,
+  nomePorDonoId,
 }: {
   retiradas: Retirada[];
   destacadas: Set<string>;
+  // Presente (com mais de 1 entrada) só quando a clínica tem mais de um
+  // dono — nesse caso mostra de qual dono é cada retirada.
+  nomePorDonoId: Map<string, string>;
 }) {
+  const mostrarColunaDono = nomePorDonoId.size > 1;
   if (retiradas.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-border bg-surface p-10 text-center">
@@ -34,6 +40,7 @@ export function RetiradasTable({
               <th className="px-5 py-3 font-medium">Valor</th>
               <th className="px-5 py-3 font-medium">Data</th>
               <th className="px-5 py-3 font-medium">Motivo</th>
+              {mostrarColunaDono && <th className="px-5 py-3 font-medium">Dono</th>}
               <th className="px-5 py-3 font-medium">Descrição / observação</th>
             </tr>
           </thead>
@@ -64,6 +71,11 @@ export function RetiradasTable({
                       </span>
                     )}
                   </td>
+                  {mostrarColunaDono && (
+                    <td className="px-5 py-4 text-foreground/70">
+                      {(retirada.usuarioId && nomePorDonoId.get(retirada.usuarioId)) ?? "—"}
+                    </td>
+                  )}
                   <td className="px-5 py-4 text-foreground/60">
                     {retirada.descricao ?? "—"}
                     {retirada.observacao && (

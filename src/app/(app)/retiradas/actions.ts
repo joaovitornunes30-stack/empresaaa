@@ -4,16 +4,14 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { lerSessao, type ActionState } from "@/lib/auth";
+import { comSessao, lerSessao, type ActionState } from "@/lib/auth";
 import { comSessaoAba } from "@/lib/permissoes";
 import { runWithTenant } from "@/lib/tenant-context";
 import { limitesDoMes, mesAtual } from "@/lib/financeiro";
-import {
-  MOTIVOS_RETIRADA,
-  calcularSemaforoRetirada,
-  calcularTotalRetiradoNoMes,
-} from "@/lib/retiradas";
+import { MOTIVOS_RETIRADA, calcularTotalRetiradoNoMes } from "@/lib/retiradas";
 import { calcularRetiradaSaudavel } from "@/lib/retiradas-calculo";
+import { calcularRetiradaIdeal, calcularSemaforoRetiradaIdeal } from "@/lib/caixa-livre";
+import { calcularCaixaLivre } from "@/lib/caixa-livre-calculo";
 
 export type { ActionState };
 
@@ -36,6 +34,11 @@ const retiradaSchema = z.object({
     .trim()
     .optional()
     .transform((value) => (value ? value : undefined)),
+  usuarioId: z
+    .string()
+    .trim()
+    .optional()
+    .transform((value) => (value ? value : undefined)),
 });
 
 export const criarRetirada = comSessaoAba<RetiradaState>("retiradas", async (ctx, _prevState, formData) => {
@@ -45,16 +48,31 @@ export const criarRetirada = comSessaoAba<RetiradaState>("retiradas", async (ctx
     descricao: formData.get("descricao") || undefined,
     motivo: formData.get("motivo") || undefined,
     observacao: formData.get("observacao") || undefined,
+    usuarioId: formData.get("usuarioId") || undefined,
   });
 
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Dados inválidos.", aviso: null };
   }
 
-  const { valor, data, descricao, motivo, observacao } = parsed.data;
+  const { valor, data, descricao, motivo, observacao, usuarioId } = parsed.data;
+
+  // A quem atribuir a retirada: o escolhido no formulário (validado contra
+  // os donos reais da clínica — nunca aceita um id arbitrário), ou, se a
+  // clínica só tem um dono, esse mesmo (nem precisa aparecer na tela).
+  const donos = await prisma.usuario.findMany({
+    where: { clinicaId: ctx.clinicaId, papel: "dono" },
+    select: { id: true },
+  });
+  const usuarioIdValido =
+    usuarioId && donos.some((dono) => dono.id === usuarioId)
+      ? usuarioId
+      : donos.length === 1
+        ? donos[0].id
+        : null;
 
   await prisma.retirada.create({
-    data: { valor, data, descricao, motivo, observacao, clinicaId: ctx.clinicaId },
+    data: { valor, data, descricao, motivo, observacao, usuarioId: usuarioIdValido, clinicaId: ctx.clinicaId },
   });
 
   revalidatePath("/retiradas");
@@ -71,12 +89,12 @@ export const criarRetirada = comSessaoAba<RetiradaState>("retiradas", async (ctx
     select: { valor: true, data: true },
   });
   const totalRetiradoNoMes = calcularTotalRetiradoNoMes(retiradasDoMes, mesDaRetirada);
-  const estado = await calcularRetiradaSaudavel(
-    clinica.percentualReservaRetirada,
-    clinica.proLaboreCombinado,
-    data,
-  );
-  const semaforo = calcularSemaforoRetirada(estado, totalRetiradoNoMes);
+  const [estado, caixaLivreResultado] = await Promise.all([
+    calcularRetiradaSaudavel(clinica.percentualReservaRetirada, clinica.proLaboreCombinado, data),
+    calcularCaixaLivre(clinica.horizonteDiasCompromissos, clinica.reservaMesesCustoFixo, data),
+  ]);
+  const resultadoIdeal = calcularRetiradaIdeal(estado, caixaLivreResultado);
+  const semaforo = calcularSemaforoRetiradaIdeal(resultadoIdeal, estado, totalRetiradoNoMes);
   const aviso = semaforo === "laranja" || semaforo === "vermelho" ? AVISO_ACIMA_DO_RECOMENDADO : null;
 
   return { error: null, aviso };
@@ -133,3 +151,38 @@ export const atualizarConfiguracaoRetirada = async (
     return { error: null };
   });
 };
+
+const ajusteCalculoSchema = z.object({
+  horizonteDiasCompromissos: z.coerce
+    .number()
+    .int("Deve ser um número inteiro de dias.")
+    .positive("Deve ser maior que zero."),
+  reservaMesesCustoFixo: z.coerce.number().min(0, "Não pode ser negativo."),
+});
+
+/**
+ * Horizonte de compromissos e reserva mínima de caixa (Parte 1, "Retirada
+ * ideal") — diferente da configuração acima, aqui é só o dono que ajusta.
+ */
+export const atualizarAjusteCalculo = comSessao(["dono"], async (ctx, _prevState, formData) => {
+  const parsed = ajusteCalculoSchema.safeParse({
+    horizonteDiasCompromissos: formData.get("horizonteDiasCompromissos"),
+    reservaMesesCustoFixo: formData.get("reservaMesesCustoFixo"),
+  });
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
+  }
+
+  await prisma.clinica.update({
+    where: { id: ctx.clinicaId },
+    data: {
+      horizonteDiasCompromissos: parsed.data.horizonteDiasCompromissos,
+      reservaMesesCustoFixo: parsed.data.reservaMesesCustoFixo,
+    },
+  });
+
+  revalidatePath("/retiradas");
+  revalidatePath("/analise");
+  return { error: null };
+});

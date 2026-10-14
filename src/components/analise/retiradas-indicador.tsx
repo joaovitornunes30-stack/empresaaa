@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { formatarMoeda } from "@/lib/financeiro";
-import { calcularSemaforoRetirada, type EstadoRetiradaSaudavel } from "@/lib/retiradas";
+import type { EstadoRetiradaSaudavel } from "@/lib/retiradas";
+import { calcularSemaforoRetiradaIdeal, type RetiradaIdealResultado } from "@/lib/caixa-livre";
 
 const SEMAFORO_DOT: Record<"verde" | "laranja" | "vermelho" | "cinza", string> = {
   verde: "bg-good",
@@ -9,17 +10,19 @@ const SEMAFORO_DOT: Record<"verde" | "laranja" | "vermelho" | "cinza", string> =
   cinza: "bg-foreground/25",
 };
 
-/** Pequeno indicador do semáforo de retiradas do mês, com link para a aba
- * Retiradas — só é renderizado por quem já tem acesso a ela (ver
- * temPermissaoAba em analise/page.tsx). */
+/** Pequeno indicador do semáforo de retiradas do mês (comparado com a
+ * Retirada ideal), com link para a aba Retiradas — só é renderizado por
+ * quem já tem acesso a ela (ver temPermissaoAba em analise/page.tsx). */
 export function RetiradasIndicador({
   estado,
+  resultadoIdeal,
   totalRetiradoMes,
 }: {
   estado: EstadoRetiradaSaudavel;
+  resultadoIdeal: RetiradaIdealResultado;
   totalRetiradoMes: number;
 }) {
-  const semaforo = calcularSemaforoRetirada(estado, totalRetiradoMes);
+  const semaforo = calcularSemaforoRetiradaIdeal(resultadoIdeal, estado, totalRetiradoMes);
 
   return (
     <Link

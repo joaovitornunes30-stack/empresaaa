@@ -33,6 +33,7 @@ model Clinica {
   despesasAdministrativas   DespesaAdministrativa[]
   anotacoesConsultor        AnotacaoConsultor[]
   mesesPausados             MesPausado[]
+  custosDeVida              CustoDeVida[]
   // % da sobra média dos últimos 3 meses fechados que fica retida na
   // clínica em vez de virar retirada saudável — ver lib/retiradas-calculo.ts.
   percentualReservaRetirada Float                   @default(20)
@@ -44,6 +45,14 @@ model Clinica {
   // um módulo só esconde a interface de criação — nenhum dado existente é
   // apagado nem para de contar nos cálculos. Ver lib/modulos.ts.
   modulosAtivos             Json                    @default("{\"planos\":false,\"protocolo\":false,\"indicacoes\":false}")
+  // Horizonte (em dias) de saídas já programadas consideradas no cálculo de
+  // Caixa livre — parcelas de dívida, despesas recorrentes e salários a
+  // vencer dentro desses próximos N dias. Ver lib/caixa-livre.ts.
+  horizonteDiasCompromissos Int                     @default(30)
+  // Reserva mínima de caixa, em meses de custo fixo médio (dos últimos 3
+  // meses fechados não pausados) — nunca contada como "livre" na Retirada
+  // ideal. Ver lib/caixa-livre.ts.
+  reservaMesesCustoFixo     Float                   @default(1)
 }
 
 // "dono": acesso total à própria clínica, fixo, não editável. "membro":
@@ -74,6 +83,13 @@ model Usuario {
   // Permissões granulares por aba — só existe (e só é consultada) quando
   // papel="membro". dono/consultor têm seu acesso resolvido sem esta tabela.
   permissoes       PermissaoUsuario?
+  // Retiradas atribuídas a este usuário (sempre um "dono" — ver
+  // Retirada.usuarioId). Pode haver mais de um dono por clínica.
+  retiradas        Retirada[]
+  // Custo de vida privado deste dono — ver model CustoDeVida e
+  // lib/custo-de-vida.ts (regra rígida de privacidade: só o próprio dono
+  // lê/edita o próprio registro).
+  custoDeVida      CustoDeVida?
 }
 
 // Permissões granulares de um Usuario com papel="membro", uma aba por
@@ -132,6 +148,34 @@ model MesPausado {
   createdAt DateTime @default(now())
 
   @@unique([clinicaId, mesISO])
+}
+
+// Custo de vida privado de um dono (Parte 2 de "Retirada ideal"). Regra
+// rígida de privacidade: cada dono só vê/edita o PRÓPRIO registro — nunca
+// o de outro dono, membro ou consultor. A única porta de entrada deste
+// modelo é lib/custo-de-vida.ts, que nunca aceita um usuarioId arbitrário
+// para leitura/escrita individual; a única consulta que olha para mais de
+// um dono é a soma agregada de quem está com ativo=true (nunca uma linha
+// individual) — usada na Análise/diagnóstico da clínica.
+model CustoDeVida {
+  id            String   @id @default(cuid())
+  usuarioId     String   @unique
+  usuario       Usuario  @relation(fields: [usuarioId], references: [id])
+  clinicaId     String
+  clinica       Clinica  @relation(fields: [clinicaId], references: [id])
+  // Mínimo pra viver, por mês — obrigatório quando este registro é salvo.
+  preciso       Float?
+  // Meta de renda, por mês — obrigatório quando este registro é salvo.
+  quero         Float?
+  // Detalhamento opcional que ajuda a chegar no "preciso".
+  moradia       Float?
+  gastosBasicos Float?
+  cartao        Float?
+  outros        Float?
+  // Liga/desliga se este registro entra na soma usada pela clínica — ver
+  // lib/custo-de-vida.ts: buscarSomaCustoDeVidaAtivo.
+  ativo         Boolean  @default(false)
+  updatedAt     DateTime @updatedAt
 }
 
 model PerfilTributario {
@@ -438,6 +482,11 @@ model Retirada {
   motivo     String   @default("rotina")
   // Texto livre opcional — ex: o que motivou uma retirada fora do padrão.
   observacao String?
+  // A qual dono esta retirada pertence (clínicas com mais de um dono — ver
+  // "Retirada ideal" Parte 3). Nulo só em registros antigos de antes deste
+  // campo existir, nunca em retiradas novas (ver migration de backfill).
+  usuarioId  String?
+  usuario    Usuario? @relation(fields: [usuarioId], references: [id])
   clinicaId  String
   clinica    Clinica  @relation(fields: [clinicaId], references: [id])
   createdAt  DateTime @default(now())

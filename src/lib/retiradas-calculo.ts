@@ -31,7 +31,7 @@ const LIMITE_MESES_PARA_TRAS = 24;
  * retorna o que achou (nunca 3) — o chamador trata isso como "sem
  * histórico suficiente", igual a antes.
  */
-function tresMesesFechadosNaoPausados(hoje: Date, mesesPausados: Set<string>): string[] {
+export function tresMesesFechadosNaoPausados(hoje: Date, mesesPausados: Set<string>): string[] {
   const meses: string[] = [];
   let cursor = mesAnterior(mesAtual(hoje));
   for (let passos = 0; meses.length < 3 && passos < LIMITE_MESES_PARA_TRAS; passos++) {
@@ -66,7 +66,7 @@ const SELECT_PLANOS_PARA_RESUMO = {
  * `temDados` marca se houve alguma movimentação financeira no mês — é o
  * que decide se ele conta como "mês fechado" para a média.
  */
-async function calcularOQueRealmenteSobrouDoMes(mes: string, planosParaResumo: PlanoParaResumo[]) {
+export async function calcularOQueRealmenteSobrouDoMes(mes: string, planosParaResumo: PlanoParaResumo[]) {
   const { inicio, fim } = limitesDoMes(mes);
 
   const [entradasSaidasDoMes, parcelasPagasDividaDoMes] = await Promise.all([
@@ -101,16 +101,16 @@ async function calcularOQueRealmenteSobrouDoMes(mes: string, planosParaResumo: P
 
   const vendasSimplesDoMes = filtrarVendasSimplesDoMes(entradasSaidasDoMes);
 
-  const oQueRealmenteSobrou = calcularParaOndeVaiDinheiro({
+  const cascata = calcularParaOndeVaiDinheiro({
     receitaVendasSimplesMes: calcularReceitaVendasSimplesMes(vendasSimplesDoMes),
     receitaReconhecidaMes: calcularReceitaReconhecidaMes(planosParaResumo, mes),
     custoVendasSimplesMes: calcularCustoVendasSimplesMes(vendasSimplesDoMes),
     custoSessoesPlanosMes: calcularCustoMes(planosParaResumo, mes),
     custosFixosMes: calcularCustosFixosMes(entradasSaidasDoMes),
     parcelasDividaPagasMes: calcularParcelasDividaPagasMes(parcelasPagasDividaDoMes),
-  }).oQueRealmenteSobrou;
+  });
 
-  return { temDados: entradasSaidasDoMes.length > 0, oQueRealmenteSobrou };
+  return { temDados: entradasSaidasDoMes.length > 0, ...cascata };
 }
 
 /**

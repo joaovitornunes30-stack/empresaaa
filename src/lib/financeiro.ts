@@ -2,7 +2,7 @@ export type Prazo = "curto" | "medio" | "longo";
 
 const DIA_MS = 24 * 60 * 60 * 1000;
 
-function diasAte(data: Date, hoje: Date) {
+export function diasAte(data: Date, hoje: Date) {
   const inicioHoje = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
   const inicioData = new Date(data.getFullYear(), data.getMonth(), data.getDate());
   return Math.round((inicioData.getTime() - inicioHoje.getTime()) / DIA_MS);

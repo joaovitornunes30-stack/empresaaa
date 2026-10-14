@@ -49,6 +49,8 @@ import { runWithTenant, type TenantContext } from "@/lib/tenant-context";
 import { sincronizarLancamentosRecorrentes } from "@/lib/folha";
 import { calcularTotalRetiradoNoMes } from "@/lib/retiradas";
 import { calcularRetiradaSaudavel } from "@/lib/retiradas-calculo";
+import { calcularRetiradaIdeal } from "@/lib/caixa-livre";
+import { calcularCaixaLivre } from "@/lib/caixa-livre-calculo";
 import { buscarMesesPausados } from "@/lib/meses-pausados";
 import { PausarMesControle } from "@/components/analise/pausar-mes-controle";
 
@@ -226,12 +228,16 @@ async function AnalisePageConteudo(sessao: TenantContext, somenteLeitura: boolea
           prisma.retirada.findMany({ where: { data: { gte: inicio, lt: fim } }, select: { valor: true, data: true } }),
           prisma.clinica.findUniqueOrThrow({ where: { id: sessao.clinicaId } }),
         ]);
-        const estado = await calcularRetiradaSaudavel(
-          clinica.percentualReservaRetirada,
-          clinica.proLaboreCombinado,
-          hoje,
-        );
-        return { estado, totalRetiradoMes: calcularTotalRetiradoNoMes(retiradasDoMes, mes) };
+        const [estado, caixaLivreResultado] = await Promise.all([
+          calcularRetiradaSaudavel(clinica.percentualReservaRetirada, clinica.proLaboreCombinado, hoje),
+          calcularCaixaLivre(clinica.horizonteDiasCompromissos, clinica.reservaMesesCustoFixo, hoje),
+        ]);
+        const resultadoIdeal = calcularRetiradaIdeal(estado, caixaLivreResultado);
+        return {
+          estado,
+          resultadoIdeal,
+          totalRetiradoMes: calcularTotalRetiradoNoMes(retiradasDoMes, mes),
+        };
       })()
     : null;
 
@@ -277,6 +283,7 @@ async function AnalisePageConteudo(sessao: TenantContext, somenteLeitura: boolea
         {indicadorRetiradas && (
           <RetiradasIndicador
             estado={indicadorRetiradas.estado}
+            resultadoIdeal={indicadorRetiradas.resultadoIdeal}
             totalRetiradoMes={indicadorRetiradas.totalRetiradoMes}
           />
         )}

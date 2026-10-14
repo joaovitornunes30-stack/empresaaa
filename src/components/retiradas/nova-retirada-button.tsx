@@ -11,7 +11,13 @@ const inputClass =
   "w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20";
 const labelClass = "mb-1.5 block text-sm font-medium text-foreground/80";
 
-export function NovaRetiradaButton() {
+export function NovaRetiradaButton({
+  donos,
+  donoAtualId,
+}: {
+  donos: { id: string; nome: string }[];
+  donoAtualId: string | null;
+}) {
   const [open, setOpen] = useState(false);
   const [state, formAction, pending] = useActionState(criarRetirada, initialRetiradaState);
   const [submittedOnce, setSubmittedOnce] = useState(false);
@@ -87,6 +93,26 @@ export function NovaRetiradaButton() {
                 placeholder="Detalhes adicionais"
               />
             </div>
+
+            {donos.length > 1 && (
+              <div>
+                <label htmlFor="usuarioId" className={labelClass}>
+                  Dono
+                </label>
+                <select
+                  id="usuarioId"
+                  name="usuarioId"
+                  defaultValue={donoAtualId ?? donos[0].id}
+                  className={inputClass}
+                >
+                  {donos.map((dono) => (
+                    <option key={dono.id} value={dono.id}>
+                      {dono.nome}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <div className="rounded-xl border border-primary/30 bg-primary/5 p-3">
               <label htmlFor="motivo" className={labelClass}>

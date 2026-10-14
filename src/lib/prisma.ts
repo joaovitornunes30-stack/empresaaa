@@ -27,6 +27,11 @@ const MODELOS_COM_CLINICA = new Set([
   "DespesaAdministrativa",
   "AnotacaoConsultor",
   "MesPausado",
+  // Isolado aqui só por clínica (defesa em profundidade) — o isolamento
+  // por USUÁRIO (cada dono só lê/escreve o próprio registro) é regra
+  // rígida de privacidade e vive só em lib/custo-de-vida.ts, a única
+  // porta de entrada deste modelo no app.
+  "CustoDeVida",
 ]);
 
 // Operações cujo filtro de leitura/alvo fica em `where`.
