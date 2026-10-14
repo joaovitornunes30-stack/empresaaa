@@ -1,7 +1,14 @@
 import { formatarMoeda } from "@/lib/financeiro";
 import { formatarMesLabel, type PontoComparativo } from "@/lib/analise";
+import { PausarMesControle } from "@/components/analise/pausar-mes-controle";
 
-export function ComparativoMensalChart({ pontos }: { pontos: PontoComparativo[] }) {
+export function ComparativoMensalChart({
+  pontos,
+  podeAlterarPausa,
+}: {
+  pontos: PontoComparativo[];
+  podeAlterarPausa: boolean;
+}) {
   const maximo = Math.max(1, ...pontos.flatMap((p) => [p.faturamento, p.despesas]));
 
   return (
@@ -20,7 +27,7 @@ export function ComparativoMensalChart({ pontos }: { pontos: PontoComparativo[] 
         {pontos.map((ponto) => (
           <div key={ponto.mes} className="flex flex-1 flex-col items-center gap-1.5">
             <div
-              className="flex w-full items-end justify-center gap-1"
+              className={`flex w-full items-end justify-center gap-1 ${ponto.pausado ? "opacity-40" : ""}`}
               style={{ height: "140px" }}
             >
               <div
@@ -37,6 +44,13 @@ export function ComparativoMensalChart({ pontos }: { pontos: PontoComparativo[] 
             <span className="text-[11px] text-foreground/50">
               {formatarMesLabel(ponto.mes)}
             </span>
+            <PausarMesControle
+              mes={ponto.mes}
+              pausado={ponto.pausado}
+              motivo={ponto.motivoPausa}
+              podeAlterar={podeAlterarPausa}
+              compact
+            />
           </div>
         ))}
       </div>

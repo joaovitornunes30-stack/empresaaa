@@ -19,6 +19,7 @@ import {
   filtrarVendasSimplesDoMes,
   gerarResumoDoMes,
   mesclarCustoPorProduto,
+  pontoMesAnteriorParaComparacao,
   ultimosMeses,
 } from "@/lib/analise";
 import {
@@ -48,6 +49,8 @@ import { runWithTenant, type TenantContext } from "@/lib/tenant-context";
 import { sincronizarLancamentosRecorrentes } from "@/lib/folha";
 import { calcularTotalRetiradoNoMes } from "@/lib/retiradas";
 import { calcularRetiradaSaudavel } from "@/lib/retiradas-calculo";
+import { buscarMesesPausados } from "@/lib/meses-pausados";
+import { PausarMesControle } from "@/components/analise/pausar-mes-controle";
 
 export const dynamic = "force-dynamic";
 
@@ -76,6 +79,7 @@ async function AnalisePageConteudo(sessao: TenantContext, somenteLeitura: boolea
     metaDoMes,
     entradasSaidasUltimos6Meses,
     planosParaResumo,
+    mesesPausados,
   ] = await Promise.all([
     prisma.entradaSaida.findMany({
       where: { data: { gte: inicio, lt: fim } },
@@ -148,6 +152,7 @@ async function AnalisePageConteudo(sessao: TenantContext, somenteLeitura: boolea
         },
       },
     }),
+    buscarMesesPausados(),
   ]);
 
   const faturamentoMes = calcularFaturamentoMes(entradasSaidasDoMes);
@@ -156,7 +161,8 @@ async function AnalisePageConteudo(sessao: TenantContext, somenteLeitura: boolea
   const gastoMidia = calcularGastoMidia(entradasSaidasDoMes);
   const totaisPorPrazo = agruparDividasPorPrazo(dividas);
   const composicao = calcularComposicaoFaturamento(entradasSaidasDoMes, produtos);
-  const comparativo = calcularComparativoMensal(entradasSaidasUltimos6Meses, meses6);
+  const comparativo = calcularComparativoMensal(entradasSaidasUltimos6Meses, meses6, mesesPausados);
+  const podeAlterarPausa = sessao.papel === "dono";
   const receitaReconhecidaMes = calcularReceitaReconhecidaMes(planosParaResumo, mes);
   const sessoesPendentesMes = calcularSessoesPendentesMes(planosParaResumo, mes);
 
@@ -193,8 +199,7 @@ async function AnalisePageConteudo(sessao: TenantContext, somenteLeitura: boolea
     };
   });
 
-  const faturamentoMesAnterior =
-    comparativo.length >= 2 ? comparativo[comparativo.length - 2].faturamento : 0;
+  const faturamentoMesAnterior = pontoMesAnteriorParaComparacao(comparativo)?.faturamento ?? 0;
 
   const resumo = gerarResumoDoMes({
     faturamentoMes,
@@ -260,6 +265,14 @@ async function AnalisePageConteudo(sessao: TenantContext, somenteLeitura: boolea
           <p className="mt-1 text-sm text-foreground/60">
             Painel consolidado do mês — dados reais, sem estimativas.
           </p>
+          <div className="mt-2">
+            <PausarMesControle
+              mes={mes}
+              pausado={mesesPausados.has(mes)}
+              motivo={mesesPausados.get(mes) ?? null}
+              podeAlterar={podeAlterarPausa}
+            />
+          </div>
         </div>
         {indicadorRetiradas && (
           <RetiradasIndicador
@@ -333,7 +346,7 @@ async function AnalisePageConteudo(sessao: TenantContext, somenteLeitura: boolea
         <h2 className="mb-3 font-display text-base font-semibold text-foreground">
           Comparativo mês a mês
         </h2>
-        <ComparativoMensalChart pontos={comparativo} />
+        <ComparativoMensalChart pontos={comparativo} podeAlterarPausa={podeAlterarPausa} />
       </div>
 
       <div className="mb-8">

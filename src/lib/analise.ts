@@ -133,12 +133,25 @@ export function calcularGastoMidia(saidasDoMes: { categoria: string; valor: numb
 
 export type MovimentoComparativo = { tipo: string; valor: number; data: Date };
 
-export type PontoComparativo = { mes: string; faturamento: number; despesas: number };
+export type PontoComparativo = {
+  mes: string;
+  faturamento: number;
+  despesas: number;
+  // Mês pausado (ver lib/meses-pausados.ts): continua aparecendo no
+  // comparativo normalmente, só fica marcado para a UI exibir o aviso
+  // visual e para não entrar em nenhuma comparação (ver
+  // pontoMesAnteriorParaComparacao).
+  pausado: boolean;
+  motivoPausa: string | null;
+};
 
-/** Faturamento e despesas por mês, para os meses informados. */
+/** Faturamento e despesas por mês, para os meses informados. Meses em
+ * `mesesPausados` só ganham a marcação `pausado` — continuam com seus
+ * valores reais, nunca são ocultados da lista. */
 export function calcularComparativoMensal(
   entradasSaidas: MovimentoComparativo[],
   meses: string[],
+  mesesPausados: Map<string, string | null> = new Map(),
 ): PontoComparativo[] {
   return meses.map((mes) => {
     const { inicio, fim } = limitesDoMes(mes);
@@ -153,8 +166,20 @@ export function calcularComparativoMensal(
       despesas: doMes
         .filter((item) => item.tipo === "saida")
         .reduce((total, item) => total + item.valor, 0),
+      pausado: mesesPausados.has(mes),
+      motivoPausa: mesesPausados.get(mes) ?? null,
     };
   });
+}
+
+/** O ponto do comparativo usado como "mês anterior" em comparações (ex: o
+ * resumo do mês) — pula qualquer mês pausado e usa o mês fechado anterior a
+ * ele, sem nunca comparar com o próprio mês atual (sempre o último ponto). */
+export function pontoMesAnteriorParaComparacao(comparativo: PontoComparativo[]): PontoComparativo | null {
+  for (let i = comparativo.length - 2; i >= 0; i--) {
+    if (!comparativo[i].pausado) return comparativo[i];
+  }
+  return null;
 }
 
 export function formatarMesLabel(mes: string) {

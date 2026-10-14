@@ -193,3 +193,10 @@ export function limitesDoMes(mes: string) {
   const fim = new Date(Date.UTC(ano, mesNum, 1));
   return { inicio, fim };
 }
+
+/** O mês ("AAAA-MM") imediatamente anterior a `mes`. */
+export function mesAnterior(mes: string): string {
+  const [ano, mesNum] = mes.split("-").map(Number);
+  const data = new Date(ano, mesNum - 1 - 1, 1);
+  return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}`;
+}

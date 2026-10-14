@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { lerSessao, type ActionState } from "@/lib/auth";
+import { comSessao, comSessaoSimples, lerSessao, type ActionState } from "@/lib/auth";
 import { comSessaoAba } from "@/lib/permissoes";
 import { runWithTenant } from "@/lib/tenant-context";
 
@@ -120,3 +120,52 @@ export async function marcarAnotacaoConsultorResolvida(formData: FormData): Prom
     revalidatePath("/analise");
   });
 }
+
+const pausarMesSchema = z.object({
+  mes: z.string().trim().regex(/^\d{4}-\d{2}$/, "Mês inválido."),
+  motivo: z
+    .string()
+    .trim()
+    .optional()
+    .transform((value) => (value ? value : undefined)),
+});
+
+/**
+ * Pausar um mês: o lançamento continua existindo e visível em toda
+ * listagem, só sai das médias/comparações históricas (ver
+ * lib/retiradas-calculo.ts e lib/analise.ts). Só o dono pode pausar — o
+ * consultor enxerga o estado, mas não altera.
+ */
+export const pausarMes = comSessao(["dono"], async (ctx, _prevState, formData) => {
+  const parsed = pausarMesSchema.safeParse({
+    mes: formData.get("mes"),
+    motivo: formData.get("motivo") || undefined,
+  });
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
+  }
+
+  const { mes, motivo } = parsed.data;
+
+  await prisma.mesPausado.upsert({
+    where: { clinicaId_mesISO: { clinicaId: ctx.clinicaId, mesISO: mes } },
+    create: { mesISO: mes, motivo: motivo ?? null, clinicaId: ctx.clinicaId },
+    update: { motivo: motivo ?? null },
+  });
+
+  revalidatePath("/analise");
+  revalidatePath("/retiradas");
+  return { error: null };
+});
+
+/** Reativa um mês pausado — volta a contar normalmente nos cálculos. */
+export const reativarMes = comSessaoSimples(["dono"], async (_ctx, formData) => {
+  const mes = String(formData.get("mes") || "");
+  if (!/^\d{4}-\d{2}$/.test(mes)) throw new Error("Mês inválido.");
+
+  await prisma.mesPausado.deleteMany({ where: { mesISO: mes } });
+
+  revalidatePath("/analise");
+  revalidatePath("/retiradas");
+});

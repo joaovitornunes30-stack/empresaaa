@@ -26,6 +26,7 @@ const MODELOS_COM_CLINICA = new Set([
   "Funcionario",
   "DespesaAdministrativa",
   "AnotacaoConsultor",
+  "MesPausado",
 ]);
 
 // Operações cujo filtro de leitura/alvo fica em `where`.

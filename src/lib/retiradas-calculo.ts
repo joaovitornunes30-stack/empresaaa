@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
-import { limitesDoMes } from "@/lib/financeiro";
+import { limitesDoMes, mesAnterior, mesAtual } from "@/lib/financeiro";
+import { buscarMesesPausados } from "@/lib/meses-pausados";
 import {
   calcularCustosFixosMes,
   calcularCustoVendasSimplesMes,
@@ -15,14 +16,29 @@ import {
 } from "@/lib/planos";
 import type { EstadoRetiradaSaudavel } from "@/lib/retiradas";
 
-/** Os 3 meses ("YYYY-MM") imediatamente anteriores ao mês de `hoje`, do mais antigo ao mais recente — nunca inclui o mês atual (incompleto). */
-function tresMesesAnteriores(hoje: Date): string[] {
+// Depois de olhar para trás esse número de meses sem achar 3 não-pausados,
+// desiste — evita um loop praticamente sem fim se quase todo o histórico da
+// clínica estiver pausado.
+const LIMITE_MESES_PARA_TRAS = 24;
+
+/**
+ * Os 3 meses ("YYYY-MM") fechados mais recentes antes do mês de `hoje`, do
+ * mais antigo ao mais recente — nunca inclui o mês atual (incompleto).
+ * Qualquer mês pausado (ver lib/meses-pausados.ts) é pulado e substituído
+ * pelo mês fechado anterior, exatamente como pedido na funcionalidade
+ * "Pausar um mês": o mês pausado não some dos lançamentos, só sai da
+ * média. Se não achar 3 meses não-pausados dentro do limite de busca,
+ * retorna o que achou (nunca 3) — o chamador trata isso como "sem
+ * histórico suficiente", igual a antes.
+ */
+function tresMesesFechadosNaoPausados(hoje: Date, mesesPausados: Set<string>): string[] {
   const meses: string[] = [];
-  for (let i = 3; i >= 1; i--) {
-    const data = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
-    meses.push(`${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}`);
+  let cursor = mesAnterior(mesAtual(hoje));
+  for (let passos = 0; meses.length < 3 && passos < LIMITE_MESES_PARA_TRAS; passos++) {
+    if (!mesesPausados.has(cursor)) meses.push(cursor);
+    cursor = mesAnterior(cursor);
   }
-  return meses;
+  return meses.reverse();
 }
 
 const SELECT_PLANOS_PARA_RESUMO = {
@@ -100,9 +116,11 @@ async function calcularOQueRealmenteSobrouDoMes(mes: string, planosParaResumo: P
 /**
  * Estado da retirada saudável da clínica no mês de `hoje`:
  *
- * - "com_historico" quando os 3 meses anteriores ao atual têm movimentação
- *   registrada (3 meses fechados): retiradaMaxima = max(0, sobraMedia dos
- *   3 meses), retiradaSaudavel = retiradaMaxima * (1 - reserva%).
+ * - "com_historico" quando os 3 meses fechados não-pausados mais recentes
+ *   têm movimentação registrada: retiradaMaxima = max(0, sobraMedia dos
+ *   3 meses), retiradaSaudavel = retiradaMaxima * (1 - reserva%). Um mês
+ *   pausado (ver lib/meses-pausados.ts) nunca entra nessa média — é pulado
+ *   e substituído pelo mês fechado anterior.
  * - "sem_historico_com_prolabore" quando falta histórico mas há um
  *   pró-labore combinado: ele vira a própria retiradaSaudavel de
  *   referência, com a máxima derivada da mesma reserva%.
@@ -114,14 +132,19 @@ export async function calcularRetiradaSaudavel(
   proLaboreCombinado: number | null,
   hoje: Date = new Date(),
 ): Promise<EstadoRetiradaSaudavel> {
-  const planosParaResumo = await prisma.plano.findMany({ select: SELECT_PLANOS_PARA_RESUMO });
+  const [planosParaResumo, mesesPausados] = await Promise.all([
+    prisma.plano.findMany({ select: SELECT_PLANOS_PARA_RESUMO }),
+    buscarMesesPausados(),
+  ]);
 
-  const porMes = await Promise.all(
-    tresMesesAnteriores(hoje).map((mes) => calcularOQueRealmenteSobrouDoMes(mes, planosParaResumo)),
-  );
+  const meses = tresMesesFechadosNaoPausados(hoje, new Set(mesesPausados.keys()));
+  const porMes =
+    meses.length === 3
+      ? await Promise.all(meses.map((mes) => calcularOQueRealmenteSobrouDoMes(mes, planosParaResumo)))
+      : [];
 
   const fatorReserva = 1 - percentualReservaRetirada / 100;
-  const temTresMesesFechados = porMes.every((m) => m.temDados);
+  const temTresMesesFechados = meses.length === 3 && porMes.every((m) => m.temDados);
 
   if (temTresMesesFechados) {
     const sobraMedia = porMes.reduce((total, m) => total + m.oQueRealmenteSobrou, 0) / porMes.length;

@@ -32,6 +32,7 @@ model Clinica {
   funcionarios              Funcionario[]
   despesasAdministrativas   DespesaAdministrativa[]
   anotacoesConsultor        AnotacaoConsultor[]
+  mesesPausados             MesPausado[]
   // % da sobra média dos últimos 3 meses fechados que fica retida na
   // clínica em vez de virar retirada saudável — ver lib/retiradas-calculo.ts.
   percentualReservaRetirada Float                   @default(20)
@@ -116,6 +117,21 @@ model AnotacaoConsultor {
   texto     String
   resolvida Boolean  @default(false)
   createdAt DateTime @default(now())
+}
+
+// Um mês marcado pelo dono como "pausado" (ex: mês ruim/incompleto) — o
+// lançamento continua existindo e visível em todas as listagens, só para
+// de contar nas médias/comparações históricas (ver lib/meses-pausados.ts e
+// lib/retiradas-calculo.ts). Reativar o mês volta a contá-lo normalmente.
+model MesPausado {
+  id        String   @id @default(cuid())
+  clinicaId String
+  clinica   Clinica  @relation(fields: [clinicaId], references: [id])
+  mesISO    String // "AAAA-MM"
+  motivo    String? // texto livre, opcional
+  createdAt DateTime @default(now())
+
+  @@unique([clinicaId, mesISO])
 }
 
 model PerfilTributario {
