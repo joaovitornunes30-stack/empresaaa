@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { diasAte, formatarMoeda, limitesDoMes, mesAtual } from "@/lib/financeiro";
+import { adicionarDias, diasAte, formatarMoeda, limitesDoMes, mesAtual } from "@/lib/financeiro";
 import { calcularMetaDoMes, calcularVendasMes } from "@/lib/analise";
 import { calcularMargemContribuicao } from "@/lib/calculos";
 import { calcularRetiradaSaudavel } from "@/lib/retiradas-calculo";
@@ -9,6 +9,7 @@ import { calcularTotalRetiradoNoMes } from "@/lib/retiradas";
 import { identificarClientesDistantes } from "@/lib/clientes";
 import { calcularSessoesPendentesMes, type PlanoParaPendentes } from "@/lib/planos";
 import { lerModulosAtivos } from "@/lib/modulos";
+import { gerarPeriodosFuncionario, gerarPeriodosDespesaRecorrente } from "@/lib/folha";
 import type { ItemAtencao } from "@/lib/atencao";
 
 const HORIZONTE_VENCIMENTO_DIAS = 7;
@@ -37,7 +38,9 @@ export async function calcularItensAtencaoAtivos(
   const modulosAtivos = lerModulosAtivos(clinica.modulosAtivos);
 
   const [
-    parcelasPendentes,
+    parcelasPendentesSaida,
+    funcionariosAtivos,
+    despesasRecorrentesAtivas,
     retiradasDoMes,
     produtos,
     metaDoMes,
@@ -47,7 +50,14 @@ export async function calcularItensAtencaoAtivos(
     clientes,
     planosParaPendentes,
   ] = await Promise.all([
-    prisma.parcela.findMany({ where: { status: "pendente" }, select: { valor: true, dataVencimento: true } }),
+    // Só saídas (dinheiro a pagar) — entradas a receber não entram neste
+    // item (ver Correção da Home, item "Vencimentos próximos").
+    prisma.parcela.findMany({
+      where: { status: "pendente", entradaSaida: { tipo: "saida" } },
+      select: { valor: true, dataVencimento: true },
+    }),
+    prisma.funcionario.findMany({ where: { ativo: true }, select: { valorMensal: true, createdAt: true } }),
+    prisma.despesaAdministrativa.findMany({ where: { ativo: true, recorrente: true }, select: { valor: true, frequencia: true, dataInicio: true } }),
     prisma.retirada.findMany({ where: { data: { gte: inicio, lt: fim } }, select: { valor: true, data: true } }),
     prisma.produto.findMany({
       select: {
@@ -80,15 +90,39 @@ export async function calcularItensAtencaoAtivos(
     itens.push({ id: "caixa_negativo", texto: "O caixa livre está negativo.", rota: "retiradas", fixo: true, objetivoRelacionado: null });
   }
 
-  const parcelasNoHorizonte = parcelasPendentes.filter((p) => {
+  // Parcelas de saída (dívida, vendas parceladas etc.) já geradas e pendentes.
+  const parcelasNoHorizonte = parcelasPendentesSaida.filter((p) => {
     const dias = diasAte(p.dataVencimento, hoje);
     return dias >= 0 && dias <= HORIZONTE_VENCIMENTO_DIAS;
   });
-  if (parcelasNoHorizonte.length > 0) {
-    const soma = parcelasNoHorizonte.reduce((total, p) => total + p.valor, 0);
+  let quantidadeVencimentos = parcelasNoHorizonte.length;
+  let somaVencimentos = parcelasNoHorizonte.reduce((total, p) => total + p.valor, 0);
+
+  // Salário e despesa administrativa recorrente só viram EntradaSaida (sem
+  // Parcela) quando o período já chegou — ocorrências futuras dentro da
+  // janela de 7 dias ainda não existem no banco, então são projetadas aqui
+  // com as mesmas funções puras que o Caixa Livre já usa (nunca duplicadas).
+  const fimHorizonteVencimento = adicionarDias(hoje, HORIZONTE_VENCIMENTO_DIAS);
+  for (const funcionario of funcionariosAtivos) {
+    const ocorrencias = gerarPeriodosFuncionario(funcionario.createdAt, fimHorizonteVencimento).filter(
+      (data) => diasAte(data, hoje) > 0,
+    );
+    quantidadeVencimentos += ocorrencias.length;
+    somaVencimentos += ocorrencias.length * funcionario.valorMensal;
+  }
+  for (const despesa of despesasRecorrentesAtivas) {
+    if (!despesa.frequencia || !despesa.dataInicio) continue;
+    const ocorrencias = gerarPeriodosDespesaRecorrente(despesa.dataInicio, despesa.frequencia, fimHorizonteVencimento).filter(
+      (data) => diasAte(data, hoje) > 0,
+    );
+    quantidadeVencimentos += ocorrencias.length;
+    somaVencimentos += ocorrencias.length * despesa.valor;
+  }
+
+  if (quantidadeVencimentos > 0) {
     itens.push({
       id: "vencimentos_proximos",
-      texto: `${parcelasNoHorizonte.length} ${parcelasNoHorizonte.length === 1 ? "parcela vencendo" : "parcelas vencendo"} nos próximos 7 dias, somando ${formatarMoeda(soma)}.`,
+      texto: `${quantidadeVencimentos} ${quantidadeVencimentos === 1 ? "parcela vencendo" : "parcelas vencendo"} nos próximos 7 dias, somando ${formatarMoeda(somaVencimentos)}.`,
       rota: "financeiro",
       fixo: true,
       objetivoRelacionado: null,
