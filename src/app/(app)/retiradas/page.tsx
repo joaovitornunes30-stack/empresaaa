@@ -182,7 +182,7 @@ async function RetiradasPageConteudo(sessao: TenantContext) {
         <div>
           <h1 className="font-display text-2xl font-bold text-foreground">Retiradas</h1>
           <p className="mt-1 text-sm text-foreground/60">
-            Acompanhe suas retiradas e uma referência de quanto é saudável tirar da clínica.
+            Quanto você pode retirar e o que isso significa para a sua renda.
           </p>
         </div>
         {!somenteLeituraRetiradas && (

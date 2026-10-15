@@ -91,8 +91,8 @@ export const PASSOS_POR_OBJETIVO: Record<ObjetivoPrincipal, PassoChecklist[]> = 
   quanto_retirar: ["primeira_entrada", "primeira_saida", "primeira_retirada", "custo_de_vida", "perfil_tributario"],
   vender_reter: ["primeiro_cliente", "primeiro_produto", "primeira_entrada", "perfil_tributario", "meta_do_mes"],
   estoque: ["primeiro_produto", "primeiro_movimento_estoque", "primeira_entrada", "perfil_tributario", "meta_do_mes"],
-  outro: ["perfil_tributario", "primeiro_produto", "primeira_entrada", "primeira_saida"],
-  pular: ["perfil_tributario", "primeiro_produto", "primeira_entrada", "primeira_saida"],
+  outro: ["perfil_tributario", "primeiro_produto", "primeira_entrada", "meta_do_mes"],
+  pular: ["perfil_tributario", "primeiro_produto", "primeira_entrada", "meta_do_mes"],
 };
 
 export type ProgressoChecklist = {
