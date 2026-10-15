@@ -36,7 +36,7 @@ export async function trocarClinicaConsultor(clinicaId: string) {
     clinicaNome: acesso.clinica.nome,
   });
 
-  redirect("/analise");
+  redirect("/home");
 }
 
 export async function clinicasDoConsultor() {

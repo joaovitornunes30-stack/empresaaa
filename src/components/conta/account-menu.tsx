@@ -59,7 +59,7 @@ export function AccountMenu({
               Equipe
             </Link>
           )}
-          {papel === "dono" && (
+          {papel !== "adminPlataforma" && (
             <Link
               href="/minha-clinica"
               onClick={() => setAberto(false)}

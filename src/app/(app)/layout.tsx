@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { exigirSessaoPagina } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { abasPermitidas } from "@/lib/permissoes";
 import { Sidebar } from "@/components/sidebar";
 import { AccountMenu } from "@/components/conta/account-menu";
@@ -10,6 +11,21 @@ import { bannerConsultorParaClinica, clinicasDoConsultor } from "./conta-actions
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const sessao = await exigirSessaoPagina();
 
+  // adminPlataforma não pertence a nenhuma clínica — nada de Sidebar,
+  // banner de consultor ou seletor de clínica faz sentido para ele. Só a
+  // própria "Notícias" (gerenciar) e o botão de sair.
+  if (sessao.papel === "adminPlataforma") {
+    return (
+      <div className="flex min-h-screen flex-col">
+        <header className="flex items-center justify-between border-b border-border bg-surface px-6 py-3">
+          <span className="font-display text-xl font-bold text-primary-dark">Aivy</span>
+          <AccountMenu nome={sessao.nome} papel={sessao.papel} podeAcessarEquipe={false} />
+        </header>
+        <div className="min-w-0 flex-1">{children}</div>
+      </div>
+    );
+  }
+
   const banner =
     sessao.papel !== "consultor" ? await bannerConsultorParaClinica(sessao.clinicaId) : null;
 
@@ -17,6 +33,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     sessao.papel === "consultor" ? await clinicasDoConsultor() : [];
 
   const abas = await abasPermitidas(sessao);
+
+  // Clinica não é isolada pela extensão do Prisma (ver MODELOS_COM_CLINICA
+  // em lib/prisma.ts) — consulta direta, sem precisar de runWithTenant.
+  const clinicaAtiva = await prisma.clinica.findUnique({
+    where: { id: sessao.clinicaId },
+    select: { logoUrl: true },
+  });
 
   return (
     <div className="flex min-h-screen">
@@ -30,6 +53,19 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         )}
         <header className="flex items-center justify-between border-b border-border bg-surface px-6 py-3">
           <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              {clinicaAtiva?.logoUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={clinicaAtiva.logoUrl}
+                  alt=""
+                  className="h-7 w-7 shrink-0 rounded-md object-contain"
+                />
+              )}
+              <span className="font-display text-sm font-semibold text-foreground">
+                {sessao.clinicaNome}
+              </span>
+            </div>
             {sessao.papel === "consultor" && (
               <>
                 <Link

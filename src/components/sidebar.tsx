@@ -11,11 +11,13 @@ type NavItem = {
 };
 
 const NAV_ITEMS: NavItem[] = [
+  { label: "Home", href: "/home", aba: "home" },
   { label: "Análise", href: "/analise", aba: "analise" },
   { label: "Produtos", href: "/produtos", aba: "produtos" },
   { label: "Clientes", href: "/clientes", aba: "clientes" },
   { label: "Financeiro", href: "/financeiro", aba: "financeiro" },
   { label: "Retiradas", href: "/retiradas", aba: "retiradas" },
+  { label: "Notícias", href: "/noticias", aba: "noticias" },
 ];
 
 export function Sidebar({ abasPermitidas }: { abasPermitidas: Aba[] }) {

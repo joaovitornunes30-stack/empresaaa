@@ -53,6 +53,33 @@ model Clinica {
   // meses fechados não pausados) — nunca contada como "livre" na Retirada
   // ideal. Ver lib/caixa-livre.ts.
   reservaMesesCustoFixo     Float                   @default(1)
+
+  // ---------- Complemento à Home: cadastro da clínica (Parte A) ----------
+  // Tudo opcional — uma clínica criada antes desta funcionalidade continua
+  // funcionando normalmente sem nenhum desses campos. Ver lib/clinica-cadastro.ts.
+  logoUrl     String? // caminho público do arquivo em /uploads (nunca um data URL no app real)
+  tipoClinica String? // "estetica"|"odontologia"|"medicina"|"fisioterapia"|"psicologia"|"outra"
+  cnpj        String? // só dígitos (14), validado com dígitos verificadores antes de salvar
+  cep         String?
+  logradouro  String?
+  numero      String?
+  complemento String?
+  bairro      String?
+  cidade      String?
+  uf          String?
+
+  // ---------- Complemento à Home: objetivo principal (Parte B) ----------
+  // Ver lib/checklist.ts. "outro" usa objetivoTexto (máx. 200 caracteres);
+  // "pular" e "outro" compartilham a mesma checklist padrão de 4 passos.
+  objetivoPrincipal   String?
+  objetivoTexto       String?
+  // Dono dispensou o bloco "Comece por aqui" manualmente — o cartão "Seu
+  // objetivo" continua aparecendo mesmo assim (ver Efeito 3).
+  checklistDispensada Boolean @default(false)
+  // Marca que o dono já abriu o detalhe de margem de algum produto — não dá
+  // para inferir isso de nenhum dado existente, é uma interação pontual de
+  // tela (ver produtos-table.tsx).
+  abriuMargemProduto  Boolean @default(false)
 }
 
 // "dono": acesso total à própria clínica, fixo, não editável. "membro":
@@ -508,4 +535,31 @@ model Divida {
   clinicaId      String
   clinica        Clinica        @relation(fields: [clinicaId], references: [id])
   createdAt      DateTime       @default(now())
+}
+
+// Notícia da plataforma (Complemento à Home, Parte C) — tabela GLOBAL, nunca
+// vinculada a uma clínica: não entra em MODELOS_COM_CLINICA (lib/prisma.ts),
+// é só leitura para clínicas e só adminPlataforma administra (ver
+// lib/noticias.ts). "segmentos" guarda tipoClinica ou "todos"; uma clínica
+// sem tipoClinica definido só vê notícias com segmento "todos".
+model Noticia {
+  id             String   @id @default(cuid())
+  titulo         String
+  // Resumo curto escrito pelo Aivy — nunca o texto da matéria original.
+  resumo         String
+  fonteNome      String
+  link           String
+  dataPublicacao DateTime
+  // "gestao_financas"|"impostos_legislacao"|"regulacao"|"mercado_tendencias"
+  categoria      String
+  segmentos      String[] @default([])
+  destaque       Boolean  @default(false)
+  // "rascunho" ou "publicado" — tudo entra como rascunho, inclusive via
+  // importação; nunca publicado automaticamente.
+  status         String   @default("rascunho")
+  // true nas notícias de exemplo (sempre fictícias, nunca reais) — exibe o
+  // selo "Exemplo — dado fictício" para nunca parecerem reais.
+  exemplo        Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }

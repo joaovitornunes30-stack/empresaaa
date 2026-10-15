@@ -8,17 +8,28 @@ import { runWithTenant, type Papel, type TenantContext } from "@/lib/tenant-cont
  * "retiradas" é uma aba própria (rota /retiradas separada de /financeiro),
  * mas sua permissão depende também de acessaFinanceiro (ver abaPermitida).
  */
-export type Aba = "analise" | "produtos" | "clientes" | "financeiro" | "retiradas" | "equipe";
+export type Aba = "home" | "analise" | "produtos" | "clientes" | "financeiro" | "retiradas" | "equipe" | "noticias";
 
-const ABA_ORDEM: Aba[] = ["analise", "produtos", "clientes", "financeiro", "retiradas", "equipe"];
+const ABA_ORDEM: Aba[] = [
+  "home",
+  "analise",
+  "produtos",
+  "clientes",
+  "financeiro",
+  "retiradas",
+  "equipe",
+  "noticias",
+];
 
 const ABA_ROTA: Record<Aba, string> = {
+  home: "/home",
   analise: "/analise",
   produtos: "/produtos",
   clientes: "/clientes",
   financeiro: "/financeiro",
   retiradas: "/retiradas",
   equipe: "/equipe",
+  noticias: "/noticias",
 };
 
 export type Permissoes = {
@@ -47,6 +58,9 @@ async function permissoesDaSessao(sessao: TenantContext): Promise<Permissoes | n
  * acesso a nada (falha fechada).
  */
 function abaPermitida(papel: Papel, permissoes: Permissoes | null, aba: Aba): boolean {
+  // Home e Notícias são sempre visíveis para quem está numa clínica — não
+  // há módulo/objetivo que as esconda (ver Complemento à Home, Parte B).
+  if (aba === "home" || aba === "noticias") return papel !== "adminPlataforma";
   if (papel === "dono") return true;
   if (papel === "consultor") return aba !== "equipe";
   if (!permissoes) return false;

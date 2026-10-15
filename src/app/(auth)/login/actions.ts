@@ -15,7 +15,7 @@ const loginSchema = z.object({
   senha: z.string().min(1, "Informe a senha."),
 });
 
-const PAPEIS_VALIDOS: Papel[] = ["dono", "membro", "consultor"];
+const PAPEIS_VALIDOS: Papel[] = ["dono", "membro", "consultor", "adminPlataforma"];
 
 export async function login(_prevState: ActionState, formData: FormData): Promise<ActionState> {
   const parsed = loginSchema.safeParse({
@@ -44,7 +44,18 @@ export async function login(_prevState: ActionState, formData: FormData): Promis
   }
   const papel = usuario.papel as Papel;
 
-  if (papel === "consultor") {
+  if (papel === "adminPlataforma") {
+    // Não pertence a nenhuma clínica — clinicaId/clinicaNome ficam vazios
+    // (sentinela nunca usado em nenhuma consulta isolada por clínica).
+    await criarSessao({
+      usuarioId: usuario.id,
+      nome: usuario.nome,
+      email: usuario.email,
+      papel,
+      clinicaId: "",
+      clinicaNome: "",
+    });
+  } else if (papel === "consultor") {
     const ultimoAcesso = await prisma.consultorAcesso.findFirst({
       where: { usuarioId: usuario.id },
       orderBy: { dataAcesso: "desc" },

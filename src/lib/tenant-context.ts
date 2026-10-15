@@ -1,6 +1,11 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 
-export type Papel = "dono" | "membro" | "consultor";
+// "adminPlataforma": papel de plataforma (não-clínica), administra só a
+// tabela global de notícias — nunca pertence a uma clínica (clinicaId fica
+// com um valor sentinela vazio na sessão, nunca usado em nenhuma consulta
+// isolada por clínica, já que adminPlataforma nunca toca modelo nenhum de
+// MODELOS_COM_CLINICA). Ver lib/noticias.ts.
+export type Papel = "dono" | "membro" | "consultor" | "adminPlataforma";
 
 export type TenantContext = {
   usuarioId: string;
