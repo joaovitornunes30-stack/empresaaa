@@ -1,0 +1,74 @@
+import { prisma } from "@/lib/prisma";
+import { tenantAtual } from "@/lib/tenant-context";
+
+/**
+ * ÚNICO arquivo do app que consulta o modelo CustoDeVida. Regra rígida de
+ * privacidade: cada dono só lê/escreve o PRÓPRIO registro — nenhuma função
+ * aqui aceita um usuarioId como parâmetro vindo do chamador. O usuarioId
+ * usado é sempre o de tenantAtual() (contexto do servidor, derivado só da
+ * sessão autenticada — nunca de um form/argumento) — não existe caminho
+ * para pedir o registro de outra pessoa, nem por engano em código futuro.
+ * A única consulta que olha para mais de um dono (buscarSomaCustoDeVidaAtivo)
+ * nunca retorna uma linha, só a soma agregada de quem ativou o interruptor.
+ */
+
+export type CustoDeVidaDados = {
+  preciso: number | null;
+  quero: number | null;
+  moradia: number | null;
+  gastosBasicos: number | null;
+  cartao: number | null;
+  outros: number | null;
+  ativo: boolean;
+};
+
+const CAMPOS: Record<keyof CustoDeVidaDados, true> = {
+  preciso: true,
+  quero: true,
+  moradia: true,
+  gastosBasicos: true,
+  cartao: true,
+  outros: true,
+  ativo: true,
+};
+
+/** O custo de vida do usuário da sessão atual — nunca de outro usuário. */
+export async function buscarMeuCustoDeVida(): Promise<CustoDeVidaDados | null> {
+  const { usuarioId } = tenantAtual();
+  return prisma.custoDeVida.findUnique({ where: { usuarioId }, select: CAMPOS });
+}
+
+/** Salva o custo de vida do usuário da sessão atual — nunca de outro usuário. */
+export async function salvarMeuCustoDeVida(dados: CustoDeVidaDados): Promise<void> {
+  const { usuarioId, clinicaId } = tenantAtual();
+  await prisma.custoDeVida.upsert({
+    where: { usuarioId },
+    create: { usuarioId, clinicaId, ...dados },
+    update: { ...dados },
+  });
+}
+
+export type SomaCustoDeVida = {
+  somaPreciso: number;
+  somaQuero: number;
+  quantidadeDonosAtivos: number;
+};
+
+/**
+ * ÚNICA função que olha para o custo de vida de mais de um dono — mesmo
+ * assim, nunca devolve uma linha, só os totais agregados de quem está com
+ * ativo=true. Nunca chamar para um papel que não seja "dono" (consultor
+ * não vê nem a soma).
+ */
+export async function buscarSomaCustoDeVidaAtivo(clinicaId: string): Promise<SomaCustoDeVida> {
+  const resultado = await prisma.custoDeVida.aggregate({
+    where: { clinicaId, ativo: true },
+    _sum: { preciso: true, quero: true },
+    _count: { _all: true },
+  });
+  return {
+    somaPreciso: resultado._sum.preciso ?? 0,
+    somaQuero: resultado._sum.quero ?? 0,
+    quantidadeDonosAtivos: resultado._count._all,
+  };
+}
