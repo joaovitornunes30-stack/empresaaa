@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { alternarMapaRecolhido } from "@/app/(app)/home/mapa-actions";
-import { FundoMapa, MarcoMapa, estadoVisual } from "@/components/home/mapa-assets";
+import { DefsDoMapa, FundoMapa, MarcoMapa, SeloConquista, TAMANHO_PX, estadoVisual } from "@/components/home/mapa-assets";
+import { VIEWBOX_DESKTOP, VIEWBOX_MOBILE, calcularPosicoes, calcularRetanguloRenderizado } from "@/lib/mapa-layout";
 import type { EstacaoMapa, EstadoMapa, RotaMapa } from "@/lib/mapa-tipos";
 
 const ROTA_HREF: Record<RotaMapa, string> = {
@@ -21,19 +22,6 @@ const ROTA_LABEL: Record<RotaMapa, string> = {
   retiradas: "Retiradas",
   clientes: "Clientes",
 };
-
-function calcularPosicoes(n: number, vertical: boolean): { x: number; y: number }[] {
-  if (n === 0) return [];
-  return Array.from({ length: n }, (_, i) => {
-    const t = n === 1 ? 0.5 : (i + 0.5) / n;
-    if (vertical) {
-      const x = 50 + 22 * Math.sin(i * 1.3);
-      return { x, y: t * 100 };
-    }
-    const y = 50 + 26 * Math.sin(i * 1.3);
-    return { x: t * 100, y };
-  });
-}
 
 function CartaoEstacao({
   estacao,
@@ -83,7 +71,10 @@ function CartaoEstacao({
         )}
 
         {estacao.conquistadaEm && (
-          <p className="mb-3 text-xs text-foreground/50">Conquistada em {estacao.conquistadaEm.toLocaleDateString("pt-BR", { timeZone: "UTC" })}</p>
+          <p className="mb-3 flex items-center gap-1.5 text-xs text-foreground/50">
+            <SeloConquista tamanho={16} />
+            Conquistada em {estacao.conquistadaEm.toLocaleDateString("pt-BR", { timeZone: "UTC" })}
+          </p>
         )}
 
         {!somenteLeitura && (
@@ -110,40 +101,78 @@ function Trilha({
   vertical: boolean;
   onAbrir: (indice: number) => void;
 }) {
+  const viewBox = vertical ? VIEWBOX_MOBILE : VIEWBOX_DESKTOP;
   const posicoes = useMemo(() => calcularPosicoes(estacoes.length, vertical), [estacoes.length, vertical]);
-  const largura = vertical ? 100 : 100;
-  const altura = vertical ? Math.max(100, estacoes.length * 26) : 100;
+  const viewport = vertical ? "mobile" : "desktop";
 
-  const caminho = posicoes
-    .map((p, i) => `${i === 0 ? "M" : "L"} ${(p.x / 100) * largura} ${(p.y / 100) * altura}`)
-    .join(" ");
+  // O container só tem largura:100% + altura mínima fixa (sem aspect-ratio
+  // nenhum) — raramente bate exatamente com a proporção do viewBox. Medir o
+  // tamanho real e replicar a conta do preserveAspectRatio="meet" é o que
+  // mantém os marcadores exatamente em cima do desenho, em qualquer largura
+  // de card.
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [medida, setMedida] = useState({ largura: 0, altura: 0 });
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const observador = new ResizeObserver((entradas) => {
+      const { width, height } = entradas[0].contentRect;
+      setMedida({ largura: width, altura: height });
+    });
+    observador.observe(el);
+    return () => observador.disconnect();
+  }, []);
+  const retangulo = calcularRetanguloRenderizado(medida, viewBox);
 
   return (
-    <div className="relative w-full" style={{ aspectRatio: vertical ? `${largura} / ${altura}` : "3 / 1" }}>
-      <svg
-        viewBox={`0 0 ${largura} ${altura}`}
-        className="absolute inset-0 h-full w-full"
-        preserveAspectRatio="none"
-        aria-hidden="true"
-      >
-        <FundoMapa largura={largura} altura={altura} />
-        {posicoes.length > 1 && <path d={caminho} fill="none" stroke="var(--color-primary)" strokeWidth={1} strokeDasharray="3 3" opacity={0.5} />}
+    <div ref={containerRef} className="relative w-full overflow-hidden rounded-xl" style={{ minHeight: vertical ? 720 : 460 }}>
+      <svg viewBox={`0 0 ${viewBox.largura} ${viewBox.altura}`} className="absolute inset-0 h-full w-full" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        <DefsDoMapa />
+        <FundoMapa largura={viewBox.largura} altura={viewBox.altura} pontos={posicoes} vertical={vertical} />
+        {posicoes.length > 1 && (
+          <path
+            d={posicoes.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ")}
+            fill="none"
+            stroke="var(--color-primary)"
+            strokeWidth={2.5}
+            strokeDasharray="7 6"
+            strokeLinecap="round"
+            opacity={0.55}
+          />
+        )}
       </svg>
 
       {estacoes.map((estacao, i) => {
         const pos = posicoes[i];
         const visual = estadoVisual({ concluida: estacao.concluida, atual: estacao.id === estacaoAtualId, tamanho: estacao.tamanho });
+        const anteriorConcluida = i === 0 ? false : estacoes[i - 1].concluida;
+        const nevoaOpacidade = anteriorConcluida ? 0.28 : 0.72;
+        const leftPx = retangulo.x + (pos.x / viewBox.largura) * retangulo.largura;
+        const topPx = retangulo.y + (pos.y / viewBox.altura) * retangulo.altura;
+        const px = TAMANHO_PX[viewport][estacao.tamanho];
+
         return (
           <button
             key={estacao.id}
             type="button"
             onClick={() => onAbrir(i)}
             aria-label={`${estacao.titulo} — ${estacao.tipo === "sugestao" ? "sugestão" : estacao.concluida ? "concluída" : estacao.id === estacaoAtualId ? "estação atual" : "pendente"}`}
-            className="absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-            style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
+            className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            style={{ left: leftPx, top: topPx, width: px, height: px }}
           >
-            <MarcoMapa marco={estacao.marco} tamanho={estacao.tamanho} estado={visual} />
-            <span className="max-w-[72px] text-center text-[11px] font-medium leading-tight text-foreground/70">{estacao.titulo}</span>
+            {/* Ícone: preenche o botão (que é do tamanho exato da estação) — centrado exatamente no ponto, independente do rótulo. */}
+            <svg width={px} height={px} viewBox={`${-px / 2} ${-px / 2} ${px} ${px}`} overflow="visible" className="pointer-events-none">
+              <MarcoMapa marco={estacao.marco} tamanho={estacao.tamanho} estado={visual} viewport={viewport} nevoaOpacidade={nevoaOpacidade} />
+            </svg>
+            {/* Rótulo: sempre abaixo do ícone, nunca sobre o desenho. Raio
+                fixo (não rounded-full) — num rótulo de várias linhas,
+                rounded-full "belisca" e corta as letras das pontas. */}
+            <span
+              className="pointer-events-none absolute left-1/2 top-full mt-1.5 w-max max-w-[76px] -translate-x-1/2 whitespace-normal rounded-md bg-background/90 px-1.5 py-0.5 text-center text-[9.5px] font-medium leading-[1.15] text-foreground/75 shadow-sm"
+              style={{ boxShadow: "0 0 0 1px var(--color-border)" }}
+            >
+              {estacao.titulo}
+            </span>
           </button>
         );
       })}
@@ -190,7 +219,7 @@ export function SeuMapa({
   }
 
   return (
-    <section className="mb-8 rounded-2xl border border-border bg-surface p-5 sm:p-6">
+    <section className="mb-8 w-full rounded-2xl border border-border bg-surface p-5 sm:p-6">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="font-display text-base font-semibold text-foreground">Seu mapa</h2>
@@ -209,16 +238,17 @@ export function SeuMapa({
         <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${percentual}%` }} />
       </div>
 
-      <div className="hidden sm:block">
+      <div className="hidden w-full sm:block">
         <Trilha estacoes={estado.estacoes} estacaoAtualId={estado.estacaoAtualId} vertical={false} onAbrir={setIndiceAberto} />
       </div>
-      <div className="sm:hidden">
+      <div className="w-full sm:hidden">
         <Trilha estacoes={estado.estacoes} estacaoAtualId={estado.estacaoAtualId} vertical onAbrir={setIndiceAberto} />
       </div>
 
       {bonus?.concluida && (
-        <p className="mt-4 rounded-xl bg-good-bg px-3 py-2 text-center text-sm font-medium text-good">
-          🏁 Parabéns! Você conquistou a estação bônus &ldquo;{bonus.titulo}&rdquo;
+        <p className="mt-4 flex items-center justify-center gap-2 rounded-xl bg-good-bg px-3 py-2 text-center text-sm font-medium text-good">
+          <SeloConquista tamanho={20} />
+          Parabéns! Você conquistou a estação bônus &ldquo;{bonus.titulo}&rdquo;
           {bonus.conquistadaEm ? ` em ${bonus.conquistadaEm.toLocaleDateString("pt-BR", { timeZone: "UTC" })}` : ""}.
         </p>
       )}

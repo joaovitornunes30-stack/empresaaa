@@ -40,23 +40,39 @@ export async function calcularEstadoMapa(
   const porId = new Map(conquistadas.map((c) => [c.estacaoId, c.conquistadaEm]));
 
   const novasConquistas: { estacaoId: string }[] = [];
-  const estacoes: EstacaoMapa[] = definicoes.map((def) => {
-    const concluidaAoVivo = def.subpassos.length > 0 && def.subpassos.every((s) => s.concluido);
-    const persistida = porId.get(def.id) ?? null;
 
-    if (def.tamanho === "bonus") {
-      // Ao vivo sempre — mas grava a data da primeira conquista só para o selo.
+  // Passo 1: todas as estações não-bônus (a meta, de tamanho "grande",
+  // precisa estar resolvida ANTES de decidir a bônus — ver passo 2).
+  const naoBonus: EstacaoMapa[] = definicoes
+    .filter((def) => def.tamanho !== "bonus")
+    .map((def) => {
+      const concluidaAoVivo = def.subpassos.length > 0 && def.subpassos.every((s) => s.concluido);
+      const persistida = porId.get(def.id) ?? null;
+      if (!persistida && concluidaAoVivo && podeGravarConquistas) {
+        novasConquistas.push({ estacaoId: def.id });
+      }
+      return { ...def, concluida: !!persistida || concluidaAoVivo, conquistadaEm: persistida ?? (concluidaAoVivo ? hoje : null) };
+    });
+
+  const metaConcluida = naoBonus.find((e) => e.tamanho === "grande")?.concluida ?? false;
+
+  // Passo 2: a bônus — sempre ao vivo (nunca "trava" concluída, ver
+  // calcularContextoMapa), e NUNCA antes da meta do mesmo objetivo, mesmo
+  // que os subpassos dela isoladamente já estivessem satisfeitos.
+  const bonus: EstacaoMapa[] = definicoes
+    .filter((def) => def.tamanho === "bonus")
+    .map((def) => {
+      const subpassosOk = def.subpassos.length > 0 && def.subpassos.every((s) => s.concluido);
+      const concluidaAoVivo = metaConcluida && subpassosOk;
+      const persistida = porId.get(def.id) ?? null;
       if (concluidaAoVivo && !persistida && podeGravarConquistas) {
         novasConquistas.push({ estacaoId: def.id });
       }
       return { ...def, concluida: concluidaAoVivo, conquistadaEm: persistida };
-    }
+    });
 
-    if (!persistida && concluidaAoVivo && podeGravarConquistas) {
-      novasConquistas.push({ estacaoId: def.id });
-    }
-    return { ...def, concluida: !!persistida || concluidaAoVivo, conquistadaEm: persistida ?? (concluidaAoVivo ? hoje : null) };
-  });
+  const porOrdemOriginal = new Map(definicoes.map((d, i) => [d.id, i]));
+  const estacoes = [...naoBonus, ...bonus].sort((a, b) => (porOrdemOriginal.get(a.id) ?? 0) - (porOrdemOriginal.get(b.id) ?? 0));
 
   if (novasConquistas.length > 0) {
     await prisma.mapaEstacaoConquistada.createMany({

@@ -251,7 +251,10 @@ export async function calcularContextoMapa(
     const atual = saldoPorProduto.get(mov.produtoId) ?? 0;
     saldoPorProduto.set(mov.produtoId, atual + (mov.tipo === "entrada" ? mov.quantidade : -mov.quantidade));
   }
-  const nenhumProdutoComMovimentoZerado = Array.from(saldoPorProduto.values()).every((saldo) => saldo > 0);
+  // saldoPorProduto.size === 0 (nenhum movimento registrado ainda) não conta
+  // como "nada zerado" — .every() num array vazio é true por vacuidade, e
+  // isso faria a estação aparecer concluída numa clínica sem nenhum dado.
+  const nenhumProdutoComMovimentoZerado = saldoPorProduto.size > 0 && Array.from(saldoPorProduto.values()).every((saldo) => saldo > 0);
   const movEstoqueMesAtual = estoqueMovimentos.some((m) => m.data >= limitesAtual.inicio && m.data < limitesAtual.fim);
   const movEstoqueMesAnterior = estoqueMovimentos.some((m) => m.data >= limitesAnterior.inicio && m.data < limitesAnterior.fim);
 
@@ -277,8 +280,20 @@ export async function calcularContextoMapa(
     produtoMaiorMargem,
     produtoMenorMargem,
     caixaLivreOk: caixaLivreResultado.caixaLivre >= 0,
-    reservaFormada: caixaLivreResultado.reservaMinimaCalculada && caixaLivreResultado.saldoAtual >= caixaLivreResultado.reservaMinima,
-    reservaMinimaCalculada: caixaLivreResultado.reservaMinimaCalculada,
+    // IMPORTANTE: NÃO usar caixaLivreResultado.reservaMinimaCalculada aqui —
+    // esse flag só confere se existem 3 meses-calendário anteriores a hoje
+    // (o que é sempre verdade, mesmo numa clínica criada ontem, sem
+    // nenhum dado real). "3 meses fechados" de verdade é o que
+    // calcularRetiradaSaudavel já define como estado "com_historico"
+    // (precisa de ao menos 1 EntradaSaida real em cada um dos 3 meses) —
+    // é essa checagem que usamos para decidir se a reserva é mensurável.
+    // Sem isso, uma clínica nova (saldo R$ 0,00) marcava a bônus de reserva
+    // como conquistada, porque 0 >= 0 e a "reserva mínima" caía em zero.
+    reservaFormada:
+      estadoSaudavel.estado === "com_historico" &&
+      caixaLivreResultado.saldoAtual > 0 &&
+      caixaLivreResultado.saldoAtual >= caixaLivreResultado.reservaMinima,
+    reservaMinimaCalculada: estadoSaudavel.estado === "com_historico",
     temDividaNaoEstruturada: caixaLivreResultado.temDividaNaoEstruturada,
     semDividaNaoEstruturada: !caixaLivreResultado.temDividaNaoEstruturada,
     retiradaIdealResultado,
