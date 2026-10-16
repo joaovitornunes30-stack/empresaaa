@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { randomInt } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { runWithTenant, type Papel, type TenantContext } from "@/lib/tenant-context";
@@ -24,12 +25,13 @@ export async function verificarSenha(senha: string, hash: string) {
 }
 
 /** Senha inicial gerada para um convite de equipe — exibida uma única vez
- * na tela para o dono repassar (sem envio de e-mail nesta versão). */
+ * na tela para o dono repassar (sem envio de e-mail nesta versão).
+ * randomInt (crypto), não Math.random — é uma senha, não só um identificador. */
 export function gerarSenhaTemporaria() {
   const alfabeto = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
   let senha = "";
   for (let i = 0; i < 10; i++) {
-    senha += alfabeto[Math.floor(Math.random() * alfabeto.length)];
+    senha += alfabeto[randomInt(alfabeto.length)];
   }
   return senha;
 }
