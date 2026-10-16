@@ -1,8 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { exigirSessaoAba, temPermissaoAba } from "@/lib/permissoes";
 import { runWithTenant, type TenantContext } from "@/lib/tenant-context";
-import { calcularPassosConcluidos } from "@/lib/checklist-calculo";
-import { montarChecklist, OBJETIVO_LABEL, type ObjetivoPrincipal } from "@/lib/checklist";
+import { type ObjetivoPrincipal } from "@/lib/checklist";
+import { calcularEstadoMapa } from "@/lib/mapa";
+import { lerModulosAtivos } from "@/lib/modulos";
 import { calcularItensAtencaoAtivos } from "@/lib/atencao-calculo";
 import { ordenarItensAtencao, MAXIMO_ITENS_ATENCAO, type RotaAtencao } from "@/lib/atencao";
 import { calcularComoEstaOMes } from "@/lib/como-esta-o-mes-calculo";
@@ -57,10 +58,18 @@ async function HomePageConteudo(sessao: TenantContext) {
   }
   itensAtencao = itensAtencao.slice(0, MAXIMO_ITENS_ATENCAO);
 
-  let progresso = null;
-  if (souDono) {
-    const concluidos = await calcularPassosConcluidos(sessao.usuarioId, clinica.abriuMargemProduto);
-    progresso = montarChecklist(objetivoPrincipal ?? "pular", concluidos);
+  // "Seu mapa": dono interage, consultor vê em leitura (mesma clínica
+  // selecionada), membro nunca vê — mesma regra da checklist anterior.
+  let estadoMapa = null;
+  let mapaRecolhidoInicial = false;
+  if (souDono || souConsultor) {
+    const modulosAtivos = lerModulosAtivos(clinica.modulosAtivos);
+    const [estado, usuarioAtual] = await Promise.all([
+      calcularEstadoMapa(clinica, objetivoPrincipal, modulosAtivos, souDono),
+      prisma.usuario.findUnique({ where: { id: sessao.usuarioId }, select: { mapaRecolhido: true } }),
+    ]);
+    estadoMapa = estado;
+    mapaRecolhidoInicial = usuarioAtual?.mapaRecolhido ?? false;
   }
 
   // Atalhos rápidos: nunca para consultor (somente leitura). "Movimento de
@@ -89,10 +98,14 @@ async function HomePageConteudo(sessao: TenantContext) {
         </div>
       </header>
 
-      {souConsultor && objetivoPrincipal && (
-        <p className="mb-6 text-sm text-foreground/60">
-          <span className="font-medium text-foreground/80">Objetivo da clínica:</span> {OBJETIVO_LABEL[objetivoPrincipal]}
-        </p>
+      {estadoMapa && (
+        <ComecePorAquiBloco
+          objetivoPrincipal={objetivoPrincipal}
+          objetivoTexto={clinica.objetivoTexto}
+          estadoMapa={estadoMapa}
+          recolhidoInicial={mapaRecolhidoInicial}
+          somenteLeitura={souConsultor}
+        />
       )}
 
       <ComoEstaOMesCards
@@ -112,15 +125,6 @@ async function HomePageConteudo(sessao: TenantContext) {
           clientes={clientes}
           donos={donos}
           donoAtualId={souDono ? sessao.usuarioId : null}
-        />
-      )}
-
-      {souDono && progresso && (
-        <ComecePorAquiBloco
-          objetivoPrincipal={objetivoPrincipal}
-          objetivoTexto={clinica.objetivoTexto}
-          checklistDispensada={clinica.checklistDispensada}
-          progresso={progresso}
         />
       )}
 

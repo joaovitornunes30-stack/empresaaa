@@ -34,6 +34,7 @@ model Clinica {
   anotacoesConsultor        AnotacaoConsultor[]
   mesesPausados             MesPausado[]
   custosDeVida              CustoDeVida[]
+  mapaEstacoesConquistadas  MapaEstacaoConquistada[]
   // % da sobra média dos últimos 3 meses fechados que fica retida na
   // clínica em vez de virar retirada saudável — ver lib/retiradas-calculo.ts.
   percentualReservaRetirada Float                   @default(20)
@@ -131,6 +132,11 @@ model Usuario {
   // de segurança sobre essa lacuna).
   termosAceitosEm DateTime?
   tokensRecuperacaoSenha PasswordResetToken[]
+
+  // ---------- Home: Seu Mapa ----------
+  // Estado recolhido/expandido do mapa, por usuário (não por clínica) — ver
+  // lib/mapa.ts. Default aberto; dono e consultor têm o próprio estado.
+  mapaRecolhido Boolean @default(false)
 }
 
 // Token de "esqueci minha senha" — de uso único, expira em 1h. Só o HASH do
@@ -226,6 +232,24 @@ model AnotacaoConsultor {
 // lançamento continua existindo e visível em todas as listagens, só para
 // de contar nas médias/comparações históricas (ver lib/meses-pausados.ts e
 // lib/retiradas-calculo.ts). Reativar o mês volta a contá-lo normalmente.
+// Estação do "Seu Mapa" (Home) já conquistada por alguma clínica — uma vez
+// gravada, a estação permanece concluída mesmo que o dado que a originou
+// seja apagado depois (ver lib/mapa.ts). EXCEÇÃO: a estação bônus nunca
+// grava aqui — ela é sempre recalculada ao vivo a cada acesso (mas o selo
+// de parabéns usa a conquistadaEm da primeira vez em que foi detectada,
+// escrita aqui mesmo assim, só para exibição — ver lib/mapa.ts). Tabela
+// nova, não destrutiva: clínicas antigas simplesmente não têm nenhuma linha
+// ainda, e o mapa recalcula normalmente a partir do zero.
+model MapaEstacaoConquistada {
+  id            String   @id @default(cuid())
+  clinicaId     String
+  clinica       Clinica  @relation(fields: [clinicaId], references: [id])
+  estacaoId     String
+  conquistadaEm DateTime @default(now())
+
+  @@unique([clinicaId, estacaoId])
+}
+
 model MesPausado {
   id        String   @id @default(cuid())
   clinicaId String

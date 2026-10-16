@@ -1,21 +1,10 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState } from "react";
-import Link from "next/link";
-import {
-  escolherObjetivo,
-  dispensarChecklist,
-  type ActionState,
-} from "@/app/(app)/home/actions";
-import {
-  OBJETIVOS_CARTAO,
-  OBJETIVO_LABEL,
-  OBJETIVO_TEXTO_MAX,
-  PASSO_LABEL,
-  PASSO_ROTA,
-  type ObjetivoPrincipal,
-  type ProgressoChecklist,
-} from "@/lib/checklist";
+import { escolherObjetivo, type ActionState } from "@/app/(app)/home/actions";
+import { OBJETIVOS_CARTAO, OBJETIVO_LABEL, OBJETIVO_TEXTO_MAX, type ObjetivoPrincipal } from "@/lib/checklist";
+import { SeuMapa } from "@/components/home/seu-mapa";
+import type { EstadoMapa } from "@/lib/mapa-tipos";
 
 const initialState: ActionState = { error: null };
 
@@ -64,7 +53,7 @@ function PickerObjetivo({
           Qual é o seu principal objetivo com o Aivy?
         </h2>
         <p className="mt-1 text-sm text-foreground/60">
-          Isso ajusta os próximos passos sugeridos abaixo — você pode trocar quando quiser.
+          Isso ajusta o mapa abaixo — você pode trocar quando quiser.
         </p>
       </div>
 
@@ -137,52 +126,33 @@ function PickerObjetivo({
   );
 }
 
-function ChecklistPassos({ progresso }: { progresso: ProgressoChecklist }) {
-  return (
-    <ul className="flex flex-col divide-y divide-border">
-      {progresso.passos.map(({ passo, concluido }) => (
-        <li key={passo} className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
-          <div className="flex items-center gap-2.5">
-            <span
-              className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${
-                concluido ? "bg-good text-white" : "border border-border text-transparent"
-              }`}
-            >
-              ✓
-            </span>
-            <span className={`text-sm ${concluido ? "text-foreground/50 line-through" : "text-foreground"}`}>
-              {PASSO_LABEL[passo]}
-            </span>
-          </div>
-          {!concluido && (
-            <Link href={PASSO_ROTA[passo]} className="shrink-0 text-xs font-semibold text-primary hover:text-primary-dark">
-              Ir
-            </Link>
-          )}
-        </li>
-      ))}
-    </ul>
-  );
-}
-
 export function ComecePorAquiBloco({
   objetivoPrincipal,
   objetivoTexto,
-  checklistDispensada,
-  progresso,
+  estadoMapa,
+  recolhidoInicial,
+  somenteLeitura,
 }: {
   objetivoPrincipal: ObjetivoPrincipal | null;
   objetivoTexto: string | null;
-  checklistDispensada: boolean;
-  progresso: ProgressoChecklist;
+  estadoMapa: EstadoMapa;
+  recolhidoInicial: boolean;
+  somenteLeitura: boolean;
 }) {
   const [trocando, setTrocando] = useState(false);
-  const [, dispensarAction] = useActionState(dispensarChecklist, initialState);
 
   const objetivoEscolhido = objetivoPrincipal !== null;
 
   const descricaoObjetivo =
     objetivoPrincipal === "outro" && objetivoTexto ? objetivoTexto : objetivoPrincipal ? OBJETIVO_LABEL[objetivoPrincipal] : null;
+
+  if (!objetivoEscolhido && somenteLeitura) {
+    return (
+      <section className="mb-8 rounded-2xl border border-border bg-surface p-4">
+        <p className="text-sm text-foreground/60">Esta clínica ainda não escolheu um objetivo principal.</p>
+      </section>
+    );
+  }
 
   if (!objetivoEscolhido || trocando) {
     return (
@@ -196,45 +166,20 @@ export function ComecePorAquiBloco({
     );
   }
 
-  // Efeito 3: o cartão "Seu objetivo" continua aparecendo mesmo com a
-  // checklist concluída ou dispensada — só que recolhido, sem os passos.
-  if (checklistDispensada || progresso.completa) {
-    return (
-      <section className="mb-8 flex items-center justify-between gap-3 rounded-2xl border border-border bg-surface p-4">
+  return (
+    <>
+      <section className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-border bg-surface p-4">
         <p className="text-sm text-foreground/80">
           <span className="font-medium text-foreground">Seu objetivo:</span> {descricaoObjetivo}
         </p>
-        <button type="button" onClick={() => setTrocando(true)} className="text-sm font-semibold text-primary hover:text-primary-dark">
-          Trocar
-        </button>
+        {!somenteLeitura && (
+          <button type="button" onClick={() => setTrocando(true)} className="shrink-0 text-sm font-semibold text-primary hover:text-primary-dark">
+            Trocar
+          </button>
+        )}
       </section>
-    );
-  }
 
-  return (
-    <section className="mb-8 rounded-2xl border border-border bg-surface p-6">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="font-display text-base font-semibold text-foreground">Comece por aqui</h2>
-          <p className="mt-0.5 text-sm text-foreground/60">
-            <span className="font-medium text-foreground/80">Seu objetivo:</span> {descricaoObjetivo} ·{" "}
-            <button type="button" onClick={() => setTrocando(true)} className="font-semibold text-primary hover:text-primary-dark">
-              Trocar
-            </button>
-          </p>
-        </div>
-        <span className="text-xs font-medium text-foreground/50">
-          {progresso.concluidos}/{progresso.total} concluídos
-        </span>
-      </div>
-
-      <ChecklistPassos progresso={progresso} />
-
-      <form action={dispensarAction} className="mt-4 flex justify-end border-t border-border pt-3">
-        <button type="submit" className="text-xs font-medium text-foreground/50 hover:text-foreground">
-          Dispensar por enquanto
-        </button>
-      </form>
-    </section>
+      <SeuMapa estado={estadoMapa} recolhidoInicial={recolhidoInicial} somenteLeitura={somenteLeitura} />
+    </>
   );
 }
