@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { Papel } from "@/lib/tenant-context";
 import { sair } from "@/app/(app)/conta-actions";
+import { RelatarProblemaButton, RelatarProblemaModal } from "@/components/conta/relatar-problema-button";
 
 function iniciais(nome: string) {
   const partes = nome.trim().split(/\s+/);
@@ -22,6 +23,7 @@ export function AccountMenu({
   podeAcessarEquipe: boolean;
 }) {
   const [aberto, setAberto] = useState(false);
+  const [relatarAberto, setRelatarAberto] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -68,6 +70,12 @@ export function AccountMenu({
               Minha Clínica
             </Link>
           )}
+          <RelatarProblemaButton
+            onAbrir={() => {
+              setAberto(false);
+              setRelatarAberto(true);
+            }}
+          />
           <form action={sair}>
             <button
               type="submit"
@@ -78,6 +86,8 @@ export function AccountMenu({
           </form>
         </div>
       )}
+
+      <RelatarProblemaModal open={relatarAberto} onClose={() => setRelatarAberto(false)} />
     </div>
   );
 }

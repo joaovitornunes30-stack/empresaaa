@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
+import { prisma } from "@/lib/prisma";
 import { runWithTenant, type Papel, type TenantContext } from "@/lib/tenant-context";
 import {
   SESSION_COOKIE,
@@ -33,8 +34,17 @@ export function gerarSenhaTemporaria() {
   return senha;
 }
 
-export async function criarSessao(payload: SessionPayload) {
-  const token = await assinarSessao(payload);
+/**
+ * `sessionVersion` nunca é passado pelo chamador — é sempre lido agora
+ * mesmo do banco, para o JWT recém-assinado já sair com o valor atual
+ * (nunca o de um objeto `usuario` potencialmente desatualizado em memória).
+ */
+export async function criarSessao(payload: Omit<SessionPayload, "sessionVersion">) {
+  const usuario = await prisma.usuario.findUniqueOrThrow({
+    where: { id: payload.usuarioId },
+    select: { sessionVersion: true },
+  });
+  const token = await assinarSessao({ ...payload, sessionVersion: usuario.sessionVersion });
   const store = await cookies();
   store.set(SESSION_COOKIE, token, {
     httpOnly: true,
@@ -50,11 +60,30 @@ export async function encerrarSessao() {
   store.delete(SESSION_COOKIE);
 }
 
+/**
+ * Além de verificar a assinatura/validade do JWT, confere sessionVersion e
+ * `ativo` direto no banco — uma redefinição de senha, uma conta desativada
+ * ou uma troca de senha incrementam sessionVersion (ver
+ * lib/recuperacao-senha.ts), o que invalida instantaneamente qualquer token
+ * antigo já emitido, mesmo um ainda dentro do prazo de expiração.
+ */
 export async function lerSessao(): Promise<SessionPayload | null> {
   const store = await cookies();
   const token = store.get(SESSION_COOKIE)?.value;
   if (!token) return null;
-  return verificarTokenSessao(token);
+
+  const payload = await verificarTokenSessao(token);
+  if (!payload) return null;
+
+  const usuario = await prisma.usuario.findUnique({
+    where: { id: payload.usuarioId },
+    select: { sessionVersion: true, ativo: true },
+  });
+  if (!usuario || !usuario.ativo || usuario.sessionVersion !== payload.sessionVersion) {
+    return null;
+  }
+
+  return payload;
 }
 
 /**

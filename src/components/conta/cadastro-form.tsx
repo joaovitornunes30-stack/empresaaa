@@ -76,11 +76,31 @@ export function CadastroForm() {
             type="password"
             required
             autoComplete="new-password"
-            minLength={6}
+            minLength={8}
             className={inputClass}
-            placeholder="Mínimo 6 caracteres"
+            placeholder="Mínimo 8 caracteres"
           />
         </div>
+
+        <label className="flex items-start gap-2 text-sm text-foreground/70">
+          <input
+            type="checkbox"
+            name="aceitouTermos"
+            required
+            className="mt-0.5 h-4 w-4 rounded border-border accent-primary"
+          />
+          <span>
+            Li e aceito os{" "}
+            <Link href="/termos" target="_blank" className="font-medium text-primary hover:text-primary-dark">
+              Termos de Uso
+            </Link>{" "}
+            e a{" "}
+            <Link href="/privacidade" target="_blank" className="font-medium text-primary hover:text-primary-dark">
+              Política de Privacidade
+            </Link>
+            .
+          </span>
+        </label>
 
         {state.error && (
           <p className="rounded-xl bg-warn-bg px-3 py-2 text-sm text-warn">

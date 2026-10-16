@@ -21,7 +21,12 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="pt-BR" className={`${sora.variable} ${inter.variable}`}>
-      <body className="min-h-screen font-sans antialiased">{children}</body>
+      <body className="min-h-screen font-sans antialiased">
+        <div className="bg-primary-dark px-4 py-1 text-center text-xs font-semibold text-primary-foreground">
+          Versão de teste — podem ocorrer instabilidades
+        </div>
+        {children}
+      </body>
     </html>
   );
 }

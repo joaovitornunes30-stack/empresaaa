@@ -6,7 +6,11 @@ import { SignJWT, jwtVerify } from "jose";
 import type { Papel } from "@/lib/tenant-context";
 
 export const SESSION_COOKIE = "aivy_session";
-export const SESSION_DURATION_SEGUNDOS = 60 * 60 * 24 * 30; // 30 dias
+// 7 dias — alinhado à expiração por inatividade pedida na checklist de
+// segurança. O cookie é reemitido com esse mesmo prazo a cada requisição
+// autenticada (ver middleware.ts), então na prática é uma janela deslizante
+// a partir do último acesso, não 7 dias fixos desde o login.
+export const SESSION_DURATION_SEGUNDOS = 60 * 60 * 24 * 7;
 
 export function segredoSessao() {
   const valor = process.env.AUTH_SECRET;
@@ -21,6 +25,11 @@ export type SessionPayload = {
   papel: Papel;
   clinicaId: string;
   clinicaNome: string;
+  // Versão da sessão no momento em que o token foi assinado — conferida
+  // contra Usuario.sessionVersion em lerSessao() (lib/auth.ts, onde o
+  // Prisma está disponível). Um token com versão desatualizada (ex: depois
+  // de uma redefinição de senha) é tratado como sessão encerrada.
+  sessionVersion: number;
 };
 
 export async function assinarSessao(payload: SessionPayload) {
@@ -40,7 +49,11 @@ export async function verificarTokenSessao(token: string): Promise<SessionPayloa
       typeof payload.email !== "string" ||
       typeof payload.papel !== "string" ||
       typeof payload.clinicaId !== "string" ||
-      typeof payload.clinicaNome !== "string"
+      typeof payload.clinicaNome !== "string" ||
+      // Tokens emitidos antes deste campo existir não têm sessionVersion —
+      // tratados como versão 0 (o default de Usuario.sessionVersion), nunca
+      // rejeitados só por isso.
+      (payload.sessionVersion !== undefined && typeof payload.sessionVersion !== "number")
     ) {
       return null;
     }
@@ -51,6 +64,7 @@ export async function verificarTokenSessao(token: string): Promise<SessionPayloa
       papel: payload.papel as Papel,
       clinicaId: payload.clinicaId,
       clinicaNome: payload.clinicaNome,
+      sessionVersion: typeof payload.sessionVersion === "number" ? payload.sessionVersion : 0,
     };
   } catch {
     return null;

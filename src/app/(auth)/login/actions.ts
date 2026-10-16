@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { verificarSenha, criarSessao, rotaPadraoParaPapel } from "@/lib/auth";
+import { estaBloqueadoPorTentativas, registrarTentativaFalha, obterIpCliente, MENSAGEM_BLOQUEIO } from "@/lib/rate-limit";
 import type { Papel } from "@/lib/tenant-context";
 
 export type ActionState = {
@@ -29,13 +30,26 @@ export async function login(_prevState: ActionState, formData: FormData): Promis
 
   const { email, senha } = parsed.data;
 
+  // Limite de tentativas por e-mail E por IP — qualquer um dos dois
+  // travado já barra a tentativa, antes mesmo de consultar a senha.
+  const ip = await obterIpCliente();
+  const chaveEmail = `email:${email}`;
+  const chaveIp = `ip:${ip}`;
+  if ((await estaBloqueadoPorTentativas(chaveEmail)) || (await estaBloqueadoPorTentativas(chaveIp))) {
+    return { error: MENSAGEM_BLOQUEIO };
+  }
+
   const usuario = await prisma.usuario.findUnique({ where: { email } });
   if (!usuario || !usuario.ativo) {
+    await registrarTentativaFalha(chaveEmail);
+    await registrarTentativaFalha(chaveIp);
     return { error: "E-mail ou senha inválidos." };
   }
 
   const senhaValida = await verificarSenha(senha, usuario.senhaHash);
   if (!senhaValida) {
+    await registrarTentativaFalha(chaveEmail);
+    await registrarTentativaFalha(chaveIp);
     return { error: "E-mail ou senha inválidos." };
   }
 

@@ -39,9 +39,14 @@ export function LoginForm() {
         </div>
 
         <div>
-          <label htmlFor="senha" className={labelClass}>
-            Senha
-          </label>
+          <div className="flex items-center justify-between">
+            <label htmlFor="senha" className={labelClass}>
+              Senha
+            </label>
+            <Link href="/esqueci-senha" className="mb-1.5 text-xs font-medium text-primary hover:text-primary-dark">
+              Esqueci minha senha
+            </Link>
+          </div>
           <input
             id="senha"
             name="senha"

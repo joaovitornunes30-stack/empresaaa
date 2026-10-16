@@ -117,6 +117,66 @@ model Usuario {
   // lib/custo-de-vida.ts (regra rígida de privacidade: só o próprio dono
   // lê/edita o próprio registro).
   custoDeVida      CustoDeVida?
+
+  // ---------- Segurança (Checklist de produção) ----------
+  // Incrementado sempre que uma senha é redefinida — embutido no JWT da
+  // sessão (ver lib/session-edge.ts) e conferido a cada leitura de sessão em
+  // lerSessao(): qualquer token assinado com uma versão antiga passa a ser
+  // tratado como inválido, derrubando todas as sessões anteriores sem
+  // precisar de uma lista de revogação. Nunca incrementado em login normal.
+  sessionVersion  Int                  @default(0)
+  // Data/hora em que este usuário aceitou os Termos de Uso/Política de
+  // Privacidade (preenchido no cadastro — ver /cadastro). Nulo para contas
+  // criadas antes deste campo existir ou convidadas pelo dono (ver README
+  // de segurança sobre essa lacuna).
+  termosAceitosEm DateTime?
+  tokensRecuperacaoSenha PasswordResetToken[]
+}
+
+// Token de "esqueci minha senha" — de uso único, expira em 1h. Só o HASH do
+// token (sha256) é armazenado; o valor original só existe no link enviado
+// por e-mail, nunca no banco (ver lib/recuperacao-senha.ts).
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  usuarioId String
+  usuario   Usuario   @relation(fields: [usuarioId], references: [id])
+  tokenHash String    @unique
+  criadoEm  DateTime  @default(now())
+  expiraEm  DateTime
+  // Preenchido quando o token é consumido com sucesso — um token usado
+  // nunca pode ser reaproveitado, mesmo ainda dentro da validade.
+  usadoEm   DateTime?
+
+  @@index([usuarioId])
+}
+
+// Registro de tentativas de login FALHAS, por e-mail e por IP — usado só
+// para limitar tentativas (ver lib/rate-limit.ts); nunca guarda a senha
+// tentada. Linhas antigas (> 1 dia) são apagadas a cada nova tentativa
+// falha, então a tabela nunca cresce sem limite (não há tarefa agendada
+// neste app).
+model TentativaLoginFalha {
+  id       String   @id @default(cuid())
+  // "email:<email em minúsculas>" ou "ip:<endereço IP>".
+  chave    String
+  criadoEm DateTime @default(now())
+
+  @@index([chave, criadoEm])
+}
+
+// "Relatar problema" (menu da conta) — tabela simples, sem isolamento por
+// clínica (é a própria clínica/usuário que fica registrada em cada linha,
+// não um dado operacional da clínica a proteger de outras clínicas).
+model RelatoProblema {
+  id          String   @id @default(cuid())
+  usuarioId   String?
+  usuarioNome String?
+  usuarioEmail String?
+  clinicaId   String?
+  clinicaNome String?
+  tela        String?
+  mensagem    String
+  criadoEm    DateTime @default(now())
 }
 
 // Permissões granulares de um Usuario com papel="membro", uma aba por

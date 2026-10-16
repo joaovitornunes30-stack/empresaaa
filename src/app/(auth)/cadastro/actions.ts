@@ -13,7 +13,8 @@ const cadastroSchema = z.object({
   nomeClinica: z.string().trim().min(1, "Informe o nome da clínica."),
   nomeDono: z.string().trim().min(1, "Informe seu nome."),
   email: z.string().trim().toLowerCase().email("Informe um e-mail válido."),
-  senha: z.string().min(6, "A senha deve ter ao menos 6 caracteres."),
+  senha: z.string().min(8, "A senha deve ter ao menos 8 caracteres."),
+  aceitouTermos: z.literal("on", { message: "É preciso aceitar os Termos de Uso e a Política de Privacidade." }),
 });
 
 export async function criarClinica(_prevState: ActionState, formData: FormData): Promise<ActionState> {
@@ -22,6 +23,7 @@ export async function criarClinica(_prevState: ActionState, formData: FormData):
     nomeDono: formData.get("nomeDono"),
     email: formData.get("email"),
     senha: formData.get("senha"),
+    aceitouTermos: formData.get("aceitouTermos"),
   });
 
   if (!parsed.success) {
@@ -46,6 +48,7 @@ export async function criarClinica(_prevState: ActionState, formData: FormData):
         senhaHash,
         papel: "dono",
         clinicaId: clinica.id,
+        termosAceitosEm: new Date(),
       },
     });
     return { clinica, usuario };

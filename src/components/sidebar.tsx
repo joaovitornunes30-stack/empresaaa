@@ -51,6 +51,12 @@ export function Sidebar({ abasPermitidas }: { abasPermitidas: Aba[] }) {
           );
         })}
       </nav>
+
+      <p className="mt-auto px-2 pt-6 text-xs text-foreground/40">
+        <Link href="/termos" className="hover:text-foreground/70">Termos</Link>
+        {" · "}
+        <Link href="/privacidade" className="hover:text-foreground/70">Privacidade</Link>
+      </p>
     </aside>
   );
 }
